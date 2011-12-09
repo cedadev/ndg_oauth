@@ -1,0 +1,49 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>Login</title>
+  </head>
+  <body>
+    <form method="post" action="${c.submit_url}">
+      <table border="0" style="margin-left: auto; margin-right: auto;">
+        <tr>
+          <td align="center" colspan="2">
+            Do you grant permission to client "${c.client_name}"?
+          </td>
+        </tr>
+        <tr>
+          <td align="center" colspan="2">
+            &nbsp;
+          </td>
+        </tr>
+        <tr>
+          <td align="left">
+            Client ID
+          </td>
+          <td align="left">
+            "${c.client_id}"
+          </td>
+        </tr>
+        <tr>
+          <td align="center" colspan="2">
+            &nbsp;
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <table border="0" width="100%">
+              <tr>
+                <td align="center"><input type="submit" value="Yes" name="yes-button"/></td>
+                <td align="center"><input type="submit" value="No" name="no-button"/></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </form>         
+  </body>
+</html>

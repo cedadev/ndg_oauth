@@ -1,0 +1,3 @@
+include ndgoauthclient/config/deployment.ini_tmpl
+recursive-include ndgoauthclient/public *
+recursive-include ndgoauthclient/templates *
