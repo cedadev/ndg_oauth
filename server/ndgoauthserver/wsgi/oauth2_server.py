@@ -1,8 +1,12 @@
-'''
-Created on 29 Nov 2011
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
 
-@author: rwilkinson
-'''
 import httplib
 import logging
 import urllib
@@ -16,11 +20,20 @@ from ndgoauthserver.lib.authenticate.noop_client_authenticator import NoopClient
 from ndgoauthserver.lib.authorization_server import AuthorizationServer
 from ndgoauthserver.lib.authorize.authorizer import Authorizer
 from ndgoauthserver.lib.authorize.authorizer_storing_identifier import AuthorizerStoringIdentifier
-from ndgoauthserver.lib.register.authorization_grant import AuthorizationGrant, AuthorizationGrantRegister
 
 log = logging.getLogger(__name__)
 
 class Oauth2ServerMiddleware(object):
+    """
+    WSGI OAuth 2.0 server.
+    Requires:
+    o Beaker session
+    o An authentication provider that sets the user's ID in the environ, e.g.,
+      repose.who
+    o MyProxyClientMiddleware
+    o Middleware to set user's decisions for authorization of OAuth clients in
+      the environ, e.g., ndgoauthserver.wsgi.authorization_filter.
+    """
     PARAM_PREFIX = 'oauth2server.'
     # Configuration options
     ACCESS_TOKEN_LIFETIME_OPTION = 'access_token_lifetime'
@@ -57,6 +70,25 @@ class Oauth2ServerMiddleware(object):
     }
 
     def __init__(self, app, app_conf, prefix=PARAM_PREFIX, **local_conf):
+        """
+        Sets up the server depending on the configuration.
+
+        @type app: WSGI application
+        @param app: wrapped application/middleware
+
+        @type app_conf: dict
+        @param app_conf: application configuration settings - ignored - this
+        method includes this arg to fit Paste middleware / app function 
+        signature
+
+        @@type prefix: str
+        @param prefix: optional prefix for parameter names included in the 
+        local_conf dict - enables these parameters to be filtered from others
+        which don't apply to this middleware
+
+        @type local_conf: dict
+        @param local_conf: attribute settings to apply
+        """
         self._app = app
         conf = self._set_configuration(prefix, local_conf)
 
@@ -98,6 +130,16 @@ class Oauth2ServerMiddleware(object):
             access_token_generator, conf)
 
     def __call__(self, environ, start_response):
+        """
+        @type environ: dict
+        @param environ: WSGI environment
+
+        @type start_response: WSGI start response function
+        @param start_response: start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         log.debug("Oauth2ServerMiddleware.__call__ ...")
         req = Request(environ)
 
@@ -119,9 +161,17 @@ class Oauth2ServerMiddleware(object):
             return ["OAuth 2.0 Server - Invalid URL"]
 
     def authorize(self, req, start_response):
+        """Handles OAuth 2 authorize request.
+        @type req: webob.Request
+        @param req: HTTP request object
 
+        @type start_response: WSGI start response function
+        @param start_response: start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         # User authentication is required before authorization can proceed.
-        # TODO Move into separate filter?
         user = req.environ.get(self.user_identifier_env_key)
         if not user:
             log.debug("%s not in environ - authentication required" % self.user_identifier_env_key)
@@ -138,6 +188,7 @@ class Oauth2ServerMiddleware(object):
         if not client_authorized:
             log.debug("User has declined authorization for client.")
 
+        # Request authorization grant.
         (redirect_uri, error, error_description) = self._authorizationServer.authorize(req, client_authorized)
         if error:
             log.error("Returning error: %s - %s", error, error_description)
@@ -151,6 +202,11 @@ class Oauth2ServerMiddleware(object):
         """
         Gets the URL to which to redirect for the user to authorize the client.
         Returns: URL or None if already authorized
+        @type user: str
+        @param user: identifier of user/resource owner
+
+        @type req: webob.Request
+        @param req: HTTP request object
         """
         client_authorizations = req.environ.get(self.client_authorizations_env_key)
         client_id = req.params.get('client_id')
@@ -171,7 +227,16 @@ class Oauth2ServerMiddleware(object):
         return (client_authorized, None)
 
     def access_token(self, req, start_response):
-        
+        """Handles OAuth 2 access token request.
+        @type req: webob.Request
+        @param req: HTTP request object
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         (response, error_status, error_description) = self._authorizationServer.access_token(req)
         headers = [
             ('Content-Type', 'application/json; charset=UTF-8'),
@@ -184,6 +249,18 @@ class Oauth2ServerMiddleware(object):
         return [response]
 
     def check_token(self, req, start_response):
+        """
+        Service to validate bearer tokens. It would be called from a resource
+        service that trusts this authorization service.
+        @type req: webob.Request
+        @param req: HTTP request object
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         (response, error_status, error_description) = self._authorizationServer.check_token(req)
         headers = [
             ('Content-Type', 'application/json; charset=UTF-8'),
@@ -200,11 +277,31 @@ class Oauth2ServerMiddleware(object):
         return ("%d %s" % (status, httplib.responses[status]))
 
     def _redirect(self, url, start_response):
+        """Initiates a redirect to a specified URL.
+        @type param: str
+        @param url: URL
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         start_response(self._get_http_status_string(httplib.FOUND),
                [('Location', url.encode('ascii', 'ignore'))])
         return []
 
     def _set_configuration(self, prefix, local_conf):
+        """Sets the configuration values.
+
+        @type prefix: str
+        @param prefix: optional prefix for parameter names included in the
+        local_conf dict - enables these parameters to be filtered from others
+        which don't apply to this middleware
+
+        @type local_conf: dict
+        @param local_conf: attribute settings to apply
+        """
         conf = {}
         plen = len(prefix)
         for k, v in local_conf.iteritems():

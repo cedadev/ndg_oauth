@@ -1,10 +1,15 @@
-'''
-Created on 17 Nov 2011
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
 
-@author: rwilkinson
-'''
 class AccessTokenRequest(object):
     """
+    OAuth 2.0 access token request object.
     """
     def __init__(self, grant_type, code, redirect_uri):
         """
@@ -24,6 +29,7 @@ class AccessTokenRequest(object):
 
 class AccessTokenResponse(object):
     """
+    OAuth 2.0 access token response object.
     """
     def __init__(self, access_token, token_type, expires_in, refresh_token=None):
         """

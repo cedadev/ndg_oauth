@@ -1,12 +1,19 @@
-'''
-Created on 8 Dec 2011
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
 
-@author: rwilkinson
-'''
 from beaker.cache import CacheManager
 from beaker.util import parse_cache_config_options
 
 class RegisterBase(object):
+    """
+    Base class for persistent registers. Entries are stored in a Beaker cache.
+    """
     def __init__(self, name, config):
         cacheMgr = CacheManager(**parse_cache_config_options(config))
         self.cache = cacheMgr.get_cache(name)
@@ -29,33 +36,3 @@ class RegisterBase(object):
             'cache.lock_dir': config.get(base + 'lock_dir', None)
             }
         return cache_opts
-
-class TestRegister(RegisterBase):
-    def add(self, k, v):
-        self.set_value(k, v)
-
-    def get(self, k):
-        return self.get_value(k)
-
-if __name__ == '__main__':
-    t = TestRegister(
-        'testcache',
-        {
-            'cache.type': 'dbm',
-            'cache.data_dir': '/tmp/cache/data',
-            'cache.lock_dir': '/tmp/cache/lock'
-        })
-    t.add('a', 'AAA')
-    t.add('b', 'BBB')
-    print t.get('a')
-    print t.cache.has_key('a')
-    print t.cache.has_key('c')
-    t.add('a', 'ABC')
-    print t.get('a')
-    t.cache.put('a', 'ABC')
-    print t.get('a')
-    t.cache.put('d', 'DDD')
-    print t.get('d')
-#    print t.get('e')
-    print t.has_key('a')
-    print t.has_key('f')

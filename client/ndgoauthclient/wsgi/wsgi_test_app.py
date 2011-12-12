@@ -26,9 +26,6 @@ class WsgiTestApp(object):
         if methodName:
             action = getattr(self, methodName)
             return action(environ, start_response)
-        elif environ['PATH_INFO'] == '/logout':
-            return self.default(environ, start_response)
-
         elif self.app is not None:
             return self.app(environ, start_response)
         else:

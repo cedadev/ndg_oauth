@@ -1,8 +1,12 @@
-'''
-Created on 17 Nov 2011
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
 
-@author: rwilkinson
-'''
 from datetime import datetime, timedelta
 import logging
 
@@ -11,6 +15,9 @@ from ndgoauthserver.lib.register.register_base import RegisterBase
 log = logging.getLogger(__name__)
 
 class AccessToken(object):
+    """
+    Access token as stored in the reqister
+    """
     def __init__(self, token_id, request, grant, token_type, lifetime):
         self.token_id = token_id
         self.token_type = token_type
@@ -22,6 +29,10 @@ class AccessToken(object):
         self.valid = True
 
 class AccessTokenRegister(RegisterBase):
+    """
+    Access token reqister that holds access tokens as determined by the cache
+    options
+    """
     CACHE_NAME = 'accesstokenregister'
 
     def __init__(self, config, prefix='cache'):

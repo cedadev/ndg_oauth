@@ -1,8 +1,12 @@
-'''
-Created on 8 Dec 2011
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
 
-@author: rwilkinson
-'''
 from ndgoauthserver.lib.authenticate.client_authenticator_interface import ClientAuthenticatorInterface
 from ndgoauthserver.lib.oauth.oauth_exception import OauthException
 from ndgoauthserver.lib.register.client import ClientRegister
@@ -16,6 +20,18 @@ class CertificateClientAuthenticator(ClientAuthenticatorInterface):
     hosting the application.
     """
     def authenticate(self, request):
+        """
+        Checks for an SSL certificate distinguished name in the environ and if
+        found, returns it.
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @rtype: str
+        @return: ID of authenticated client, or None if authentication is not to
+        be performed.
+        
+        Raise OauthException if authentication fails.
+        """
         dn = request.environ.get(self.CERT_DN_ENVIRON_KEY)
         if not dn:
             raise OauthException('invalid_client', 'No certificate DN found.')

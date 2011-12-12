@@ -1,19 +1,34 @@
-'''
-Created on 30 Nov 2011
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
 
-@author: rwilkinson
-'''
 import base64
 import logging
-import uuid
 
-from ndgoauthserver.lib.oauth.oauth_exception import OauthException
+from ndgoauthserver.lib.access_token.access_token_interface import AccessTokenInterface
 from ndgoauthserver.lib.register.access_token import AccessToken
 
 log = logging.getLogger(__name__)
 
-class MyProxyCertTokenGenerator(object):
+class MyProxyCertTokenGenerator(AccessTokenInterface):
+    """Access token generator that returns MyProxy certificates as tokens.
+    """
     def __init__(self, lifetime, token_type, **kw):
+        """
+        @type lifetime: int
+        @param lifetime: lifetimes of generated tokens in seconds
+
+        @type token_type: str
+        @param token_type: token type name
+
+        @type kw:dict
+        @param kw: additional keywords
+        """
         self.lifetime = lifetime
         self.token_type = token_type
         self.certificate_request_parameter = kw.get('certificate_request_parameter')
@@ -25,9 +40,17 @@ class MyProxyCertTokenGenerator(object):
     def get_access_token(self, token_request, grant, request):
         """
         Gets an access token using MyProxyClient.
-        Returns
-          access token or None if an error occurs that is not one of those that
-          can be reported in an error response
+        @type token_request: ndgoauthserver.lib.access_token.AccessTokenRequest
+        @param token_request: access token request
+
+        @type grant: ndgoauthserver.lib.register.authorization_grant.AuthorizationGrant
+        @param grant: authorization grant
+
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @rtype: ndgoauthserver.lib.register.access_token.AccessToken
+        @return: access token or None if an error occurs
         """
         myproxyclient = request.environ.get(self.myproxy_client_env_key)
         if myproxyclient is None:
@@ -46,14 +69,12 @@ class MyProxyCertTokenGenerator(object):
             log.error('User identifier not stored with grant')
             return None
 
-        # TODO password should be configurable.
-        myproxy_global_password = self.myproxy_global_password
+        # Attempt to obtain a certificate from MyProxy.
         try:
-            creds = myproxyclient.logon(myproxy_id, myproxy_global_password, certReq=cert_req)
+            creds = myproxyclient.logon(myproxy_id, self.myproxy_global_password, certReq=cert_req)
         except Exception, exc:
             log.error('MyProxy logon failed: %s', exc.__str__())
             return None
 
-#        token_id = uuid.uuid4().hex
         token_id = creds[0]
         return AccessToken(token_id, token_request, grant, self.token_type, self.lifetime)

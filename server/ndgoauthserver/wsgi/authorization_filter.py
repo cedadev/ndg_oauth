@@ -1,3 +1,12 @@
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
+
 import httplib
 import logging
 
@@ -10,6 +19,12 @@ from ndgoauthserver.lib.register.client_authorization import ClientAuthorization
 log = logging.getLogger(__name__)
 
 class Oauth2AuthorizationMiddleware(object):
+    """Middleware to handle user/resource owner authorization of clients within
+    a session.
+    On each invocation, sets the current authorizations in the WSGI environ.
+    At a specific URL, provides a simple form for a user to set an authorization
+    decision.
+    """
     CLIENT_AUTHORIZATIONS_SESSION_KEY = 'oauth2_client_authorizations'
     SESSION_CALL_CONTEXT_KEY = 'oauth2_client_authorizations_context'
     PARAM_PREFIX = 'oauth2authorization.'
@@ -33,11 +48,40 @@ class Oauth2AuthorizationMiddleware(object):
     }
 
     def __init__(self, app, app_conf, prefix=PARAM_PREFIX, **local_conf):
+        """
+        Sets up the server depending on the configuration.
+
+        @type app: WSGI application
+        @param app: wrapped application/middleware
+
+        @type app_conf: dict
+        @param app_conf: application configuration settings - ignored - this
+        method includes this arg to fit Paste middleware / app function 
+        signature
+
+        @type prefix: str
+        @param prefix: optional prefix for parameter names included in the 
+        local_conf dict - enables these parameters to be filtered from others
+        which don't apply to this middleware
+
+        @type local_conf: dict
+        @param local_conf: attribute settings to apply
+        """
         self._app = app
         self._set_configuration(prefix, local_conf)
         self.client_register = ClientRegister(self.client_register_file)
 
     def __call__(self, environ, start_response):
+        """
+        @type environ: dict
+        @param environ: WSGI environment
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         log.debug("Oauth2AuthorizationMiddleware.__call__ ...")
 
         req = Request(environ)
@@ -71,25 +115,40 @@ class Oauth2AuthorizationMiddleware(object):
         """
         Sets the current authorizations currently granted by the user in
         environ,
+        @type session: Beaker SessionObject
+        @param session: session data
+
+        @type environ: dict
+        @param environ: WSGI environment
         """
         client_authorizations = session.get(self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
         if client_authorizations:
-            log.debug("### _set_client_authorizations_in_environ %s", client_authorizations.__repr__())
+            log.debug("_set_client_authorizations_in_environ %s", client_authorizations.__repr__())
             # TODO Should this be a deep copy so that the session copy cannot
             # be modified by other filters?
             environ[self.client_authorizations_env_key] = client_authorizations
         else:
-            log.debug("### %s not found in session", self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
+            log.debug("%s not found in session", self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
 
     def authorize(self, req, session, start_response):
         """
         Checks whether the user has already authorized the client and if not
         displays the authorization form.
+        @type req: webob.Request
+        @param req: HTTP request object
+
+        @type session: Beaker SessionObject
+        @param session: session data
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
         """
         client_id = req.params.get('client_id')
         scope = req.params.get('scope')
         user = req.params.get('user')
-#        user = req.environ.get(self.user_identifier_env_key)
         original_url = req.params.get('original_url')
         log.debug("Client authorization request for client_id: %s  scope: %s  user: %s", client_id, scope, user)
 
@@ -115,23 +174,54 @@ class Oauth2AuthorizationMiddleware(object):
 
 
     def _client_auth_form(self, client_id, scope, req, start_response):
-            client = self.client_register.register.get(client_id)
-            tmpl_file = open(self.client_authorization_form)
-            tmpl = MarkupTemplate(tmpl_file)
-            tmpl_file.close()
-            submit_url = req.host_url + self.base_path + '/client_auth'
-            c = {'client_name': client.name,
-                 'client_id': client_id,
-                 'scope': scope,
-                 'submit_url': submit_url}
-            response = tmpl.generate(c=c).render('html')
-            start_response(self._get_http_status_string(httplib.OK),
-               [('Content-type', 'text/html'),
-                ('Content-length', str(len(response)))
-                ])
-            return [response]
+        """
+        Returns a form for the user to enter an authorization desicion.
+
+        @type client_id: str
+        @param client_id: client identifier as set in the client register
+
+        @type scope: str
+        @param scope: authorization scope
+
+        @type req: webob.Request
+        @param req: HTTP request object
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
+        client = self.client_register.register.get(client_id)
+        tmpl_file = open(self.client_authorization_form)
+        tmpl = MarkupTemplate(tmpl_file)
+        tmpl_file.close()
+        submit_url = req.host_url + self.base_path + '/client_auth'
+        c = {'client_name': client.name,
+             'client_id': client_id,
+             'scope': scope,
+             'submit_url': submit_url}
+        response = tmpl.generate(c=c).render('html')
+        start_response(self._get_http_status_string(httplib.OK),
+           [('Content-type', 'text/html'),
+            ('Content-length', str(len(response)))
+            ])
+        return [response]
 
     def client_auth(self, req, session, start_response):
+        """
+        @type req: webob.Request
+        @param req: HTTP request object
+
+        @type session: Beaker SessionObject
+        @param session: session data
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
         call_context = session.get(self.SESSION_CALL_CONTEXT_KEY)
         if not call_context:
             log.error("No session context.")
@@ -165,6 +255,16 @@ class Oauth2AuthorizationMiddleware(object):
         return self._redirect(original_url, start_response)
 
     def _set_configuration(self, prefix, local_conf):
+        """Sets the configuration values.
+
+        @type prefix: str
+        @param prefix: optional prefix for parameter names included in the
+        local_conf dict - enables these parameters to be filtered from others
+        which don't apply to this middleware
+
+        @type local_conf: dict
+        @param local_conf: attribute settings to apply
+        """
         cls = self.__class__
         self.base_path = cls._get_config_option(prefix, local_conf, cls.BASE_URL_PATH_OPTION)
         self.client_register_file = cls._get_config_option(prefix, local_conf, cls.CLIENT_REGISTER_OPTION)

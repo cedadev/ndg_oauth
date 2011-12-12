@@ -1,24 +1,31 @@
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "12/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
+
 import json
 import logging
 import httplib
 import urllib
 
-from paste.request import parse_querystring
-
 from ndgoauthserver.lib.access_token.make_access_token import make_access_token
-from ndgoauthserver.lib.authenticate.test_authenticator import TestAuthenticator
-from ndgoauthserver.lib.authorize.authorizer import Authorizer
-from ndgoauthserver.lib.oauth.access_token import AccessTokenRequest, AccessTokenResponse
+from ndgoauthserver.lib.oauth.access_token import AccessTokenRequest
 from ndgoauthserver.lib.oauth.authorize import AuthorizeRequest, AuthorizeResponse
 from ndgoauthserver.lib.oauth.oauth_exception import OauthException
-from ndgoauthserver.lib.register.access_token import AccessToken, AccessTokenRegister
+from ndgoauthserver.lib.register.access_token import AccessTokenRegister
 from ndgoauthserver.lib.register.client import ClientRegister
 from ndgoauthserver.lib.register.authorization_grant import AuthorizationGrantRegister
 
 log = logging.getLogger(__name__)
 
 class AuthorizationServer(object):
-
+    """
+    Provides the core OAuth 2.0 server functions.
+    """
     def __init__(self, client_register_file, authorizer, client_authenticator,
                  access_token_generator, config):
         self.client_register = ClientRegister(client_register_file)
@@ -32,7 +39,7 @@ class AuthorizationServer(object):
     def authorize(self, request, client_authorized):
         """Handle an authorization request.
 
-        Request query parameters:
+        Request query parameters (from http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
 
         response_type
               REQUIRED.  Value MUST be set to "code".
@@ -68,12 +75,18 @@ class AuthorizationServer(object):
               authorization request.  The exact value received from the
               client.
 
-        Returns
-          tuple (
-            redirect_uri
-            HTTP status if error
-            error description
-          )
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @type client_authorized: bool
+        @param client_authorized: True if resource owner has authorized client
+
+        @rtype: tuple: (str, int, str)
+        @return: tuple (
+                     redirect_uri
+                     HTTP status if error
+                     error description
+                 )
         """
         log.debug("Starting authorization request")
 
@@ -133,6 +146,21 @@ class AuthorizationServer(object):
         return self._redirect_after_authorize(auth_request, auth_response)
 
     def _redirect_after_authorize(self, auth_request, auth_response=None, error=None, error_description=None):
+        """Redirects to the redirect URI after the authorization process as
+        completed.
+
+        @type resp: ndgoauthserver.lib.oauth.authorize.AuthorizeRequest
+        @param resp: OAuth authorize request
+        
+        @type resp: ndgoauthserver.lib.oauth.authorize.AuthorizeResponse
+        @param resp: OAuth authorize response
+
+        @type error: str
+        @param error: OAuth error
+
+        @type error_description: str
+        @param error_description: error description
+        """
         # Check for inconsistencies that should be reported directly to the user.
         if not auth_response and not error:
             error = 'server_error'
@@ -156,6 +184,21 @@ class AuthorizationServer(object):
 
     @staticmethod
     def _make_combined_url(base_url, parameters, state):
+        """Constructs a URL from a base URL and parameters to be included in a
+        query string.
+        @type base_url: str
+        @param base_url: base URL to which to add query parameters
+
+        @type parameters: dict
+        @param parameters: parameter names and values
+
+        @type state: str
+        @param state: OAuth state parameter value, which whould not be URL
+        encoded
+
+        @rtype: str
+        @return: full URL
+        """
         url = base_url.rstrip('?')
         url_parts = [url]
         sep_with_ampersand = ('?' in url)
@@ -176,7 +219,7 @@ class AuthorizationServer(object):
         """
         Handles a request for an access token.
 
-        Request parameters in post data:
+        Request parameters in post data (from http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
 
         The client makes a request to the token endpoint by adding the
         following parameters using the "application/x-www-form-urlencoded"
@@ -202,12 +245,15 @@ class AuthorizationServer(object):
               lifetime of token in seconds
         refresh_token
 
-        Returns
-          tuple (
-            redirect_uri
-            HTTP status if error
-            error description
-          )
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @rtype: tuple: (str, int, str)
+        @return: tuple (
+                     OAuth JSON response
+                     HTTP status if error
+                     error description
+                 )
         """
         log.debug("Starting access token request")
 
@@ -251,12 +297,29 @@ class AuthorizationServer(object):
             return(None, httplib.INTERNAL_SERVER_ERROR, 'Access token generation failed.')
 
     def _access_token_response(self, resp):
+        """Constructs the JSON response to an access token request.
+        @type resp: ndgoauthserver.lib.oauth.access_token.AccessTokenResponse
+        @param resp: OAuth access token response
+
+        @rtype: str
+        @return JSON formatted response
+        """
         log.debug("Responding successfully with access token.")
         content_dict = resp.get_as_dict()
         content = json.dumps(content_dict)
         return content
 
     def _error_access_token_response(self, error, error_description):
+        """Constructs an error JSON response to an access token request.
+        @type error: str
+        @param error: OAuth error
+
+        @type error_description: str
+        @param error_description: error description
+
+        @rtype: str
+        @return JSON formatted response
+        """
         log.error("Responding with error: %s - %s", error, error_description)
         error_dict = {'error': error}
         if error_description:
@@ -274,6 +337,17 @@ class AuthorizationServer(object):
         o TODO Must be authenticated.
 
         Raises OauthException if any check fails.
+
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @type params: dict
+        @param params: request parameters
+
+        @type post_only: bool
+        @param post_only: True if the HTTP method must be POST, otherwise False
+
+
         """
         if request.scheme != 'https':
             raise OauthException('invalid_request', 'Transport layer security must be used for this request.')
@@ -295,7 +369,9 @@ class AuthorizationServer(object):
         """
         Simple service that could be used to validate bearer tokens. It would
         be called from a resource service that trusts this authorization
-        service.
+        service. This is not part of the OAuth specification.
+
+        Request parameters
 
         access_token
               REQUIRED.  Bearer token
@@ -309,6 +385,16 @@ class AuthorizationServer(object):
         error
               error as described in
               http://tools.ietf.org/html/draft-ietf-oauth-v2-22#section-5.2
+
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @rtype: tuple: (str, int, str)
+        @return: tuple (
+                     OAuth JSON response
+                     HTTP status if error
+                     error description
+                 )
         """
         params = request.params
         if 'access_token' not in params:
