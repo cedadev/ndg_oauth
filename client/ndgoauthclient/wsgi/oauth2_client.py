@@ -37,11 +37,32 @@ class Oauth2ClientMiddleware(object):
     client_instances = {}
 
     def __init__(self, app, app_conf, prefix=PARAM_PREFIX, **local_conf):
+        """
+        @param app: wrapped application/middleware
+        @type app: WSGI application
+        @param app_conf: application configuration settings - ignored - this
+        method includes this arg to fit Paste middleware / app function 
+        signature
+        @type app_conf: dict
+        @param prefix: optional prefix for parameter names included in the 
+        local_conf dict - enables these parameters to be filtered from others
+        which don't apply to this middleware
+        @param local_conf: attribute settings to apply
+        @type local_conf: dict
+        """
         self._app = app
         self._set_configuration(prefix, local_conf)
         self._oauth_client_class = Oauth2MyProxyClient
 
     def __call__(self, environ, start_response):
+        """
+        @param environ: WSGI environment
+        @type environ: dict
+        @param start_response: WSGI start response function
+        @type start_response: 
+        @return: WSGI response
+        @rtype: iterable
+        """
         log.debug("Oauth2ClientMiddleware.__call__ ...")
 
         req = Request(environ)
@@ -80,6 +101,15 @@ class Oauth2ClientMiddleware(object):
         return app_iter
 
     def _set_configuration(self, prefix, local_conf):
+        """Sets the configuration values.
+
+        @param prefix: optional prefix for parameter names included in the
+        local_conf dict - enables these parameters to be filtered from others
+        which don't apply to this middleware
+        @type prefix: str
+        @param local_conf: attribute settings to apply
+        @type local_conf: dict
+        """
         cls = self.__class__
         self.session_env_key = cls._get_config_option(prefix, local_conf, cls.SESSION_KEY_OPTION)
         self.token_env_key = self._get_config_option(prefix, local_conf, cls.TOKEN_KEY_OPTION)
@@ -116,6 +146,19 @@ class Oauth2ClientMiddleware(object):
         return cls(app, app_conf, **local_conf)
 
     def _get_token(self, session, host_url):
+        """Gets a token using the OAuth2 client.
+        @type session: Beaker SessionObject
+        @param session: session
+        @type host_url: str
+        @param host_url: host part of request URL
+        @rtype: tuple (
+            result type of callback or None
+            str or None
+        )
+        @return: (
+            result of callback or None if a redirect is needed
+            redirect URI if redirect needed or None
+        """
         client = self._oauth_client_class.get_client_instance(session, self.client_config, create=True)
 
         callback = TokenRetriever(client)
@@ -126,6 +169,13 @@ class Oauth2ClientMiddleware(object):
         return (result, redirect_url)
 
     def _get_token_after_redirect(self, session, req):
+        """Gets a token using the OAuth2 client - to be called after a redirect
+        has occurred from the OAuth authorization server.
+        @type session: Beaker SessionObject
+        @param session: session
+        @rtype: result type of callback
+        @return: result of callback
+        """
         client = self._oauth_client_class.get_client_instance(session, self.client_config)
         if client:
             # Return callback result.
@@ -143,6 +193,17 @@ class TokenRetriever(object):
         Returns the private key and certificate.
         This depends on Oauth2MyProxyClient which sets the private key in the
         client.
+        @type access_token: type of access token
+        @param access_token: access token
+        @type error: str
+        @param error: OAuth error string
+        @type error_description: str
+        @param error_description: error description
+        @rtype: tuple (str, str)
+        @return: tuple (
+            private key
+            access token
+        )
         """
         if error:
             return ("", ("Token not available because of error: %s - %s" % (error, error_description)))

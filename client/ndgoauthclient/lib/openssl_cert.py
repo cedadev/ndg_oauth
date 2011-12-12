@@ -1,3 +1,12 @@
+"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""
+__author__ = "R B Wilkinson"
+__date__ = "09/12/11"
+__copyright__ = "(C) 2011 Science and Technology Facilities Council"
+__license__ = "BSD - see LICENSE file in top-level directory"
+__contact__ = "Philip.Kershaw@stfc.ac.uk"
+__revision__ = "$Id$"
+
 from OpenSSL import crypto
 
 PRIKEY_NBITS = 4096
@@ -46,4 +55,11 @@ def createCertReq(CN, keyPair, messageDigest=MESSAGE_DIGEST_TYPE):
     return derCertReq
 
 def getKeyPairPrivateKey(keyPair):
+    """Extracts the private key from a key pair.
+
+    @type keyPair: string
+    @param keyPair: public/private key pair
+    @rtype: base string
+    @return private key PEM text
+    """
     return crypto.dump_privatekey(crypto.FILETYPE_PEM, keyPair)

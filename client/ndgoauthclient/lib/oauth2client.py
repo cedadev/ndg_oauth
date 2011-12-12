@@ -136,6 +136,7 @@ class Oauth2Client(object):
         @rtype: tuple (
             result (None if not obtained yet)
             redirect URL (None if access token already obtained)
+        )
         @return: return value from callback if access token available or a
             URL to which to redirect to obtain an access token
         """
