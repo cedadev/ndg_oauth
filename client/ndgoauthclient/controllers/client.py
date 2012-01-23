@@ -12,7 +12,7 @@ import logging
 from pylons import request, session
 from pylons.controllers.util import redirect
 
-from urllib2pyopenssl.ssl_context_util import SSlContextConfig
+from ndg.httpsclient.ssl_context_util import SSlContextConfig
 
 from ndgoauthclient.lib.base import BaseController, render
 from ndgoauthclient.lib.oauth2client import Oauth2Client, Oauth2ClientConfig

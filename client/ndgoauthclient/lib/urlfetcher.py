@@ -15,9 +15,9 @@ import urlparse
 
 from OpenSSL import SSL
 
-from urllib2pyopenssl.urllib2_build_opener import urllib2_build_opener
-from urllib2pyopenssl.https import HTTPSContextHandler
-import urllib2pyopenssl.ssl_context_util as ssl_context_util
+from ndg.httpsclient.urllib2_build_opener import build_opener
+from ndg.httpsclient.https import HTTPSContextHandler
+import ndg.httpsclient.ssl_context_util as ssl_context_util
 
 log = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def open_url(url, data=None, ssl_config=None, debug=False):
         handlers.append(urllib2.ProxyHandler({}))
         log.debug("Not using proxy")
 
-    opener = urllib2_build_opener(ssl_context, *handlers)
+    opener = build_opener(ssl_context, *handlers)
 
     # Open the URL and check the response.
     try:

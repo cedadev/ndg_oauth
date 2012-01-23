@@ -40,7 +40,7 @@ class Oauth2ClientConfig(object):
         @param redirect_uri: URL to which the OAuth authorization server should
         redirect after an authorization request
 
-        @type ssl_config: urllib2pyopenssl.ssl_context_util.SSlContextConfig
+        @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
         @param ssl_config: SSL configuration
 
         @type kw: dict

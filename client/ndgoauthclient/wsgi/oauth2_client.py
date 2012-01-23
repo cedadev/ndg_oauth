@@ -14,7 +14,7 @@ from webob import Request
 
 from ndgoauthclient.lib.oauth2client import Oauth2ClientConfig
 from ndgoauthclient.lib.oauth2_myproxy_client import Oauth2MyProxyClient
-from urllib2pyopenssl.ssl_context_util import SSlContextConfig
+from ndg.httpsclient.ssl_context_util import SSlContextConfig
 
 log = logging.getLogger(__name__)
 
