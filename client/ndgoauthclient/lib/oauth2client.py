@@ -54,22 +54,26 @@ class Oauth2ClientConfig(object):
         self.ssl_config = ssl_config
         self.kw = kw
 
-    def make_redirect_uri(self, host_url):
+    def make_redirect_uri(self, application_url):
         """Constructs the redirect URI from components.
 
-        @type host_url: str
-        @param host_url: host part of URL
+        @type application_url: str
+        @param application_url: application base URL
 
         @rtype: str
         @return: full redirect URI
         """
-        return self._construct_url([host_url, self.base_url_path, self.redirect_uri])
+        log.debug("make_redirect_uri: application_url=%s base_url_path=%s "
+                  "redirect_uri=%s",
+                  application_url, self.base_url_path, self.redirect_uri)
+        return self._construct_url([application_url, self.base_url_path,
+                                    self.redirect_uri])
 
-    def is_redirect_uri(self, host_url, url):
+    def is_redirect_uri(self, application_url, url):
         """Determines whether a URL is the redirect URI for this client.
 
-        @type host_url: str
-        @param host_url: host part of URL
+        @type application_url: str
+        @param application_url: application base URL
 
         @type url: str
         @param url: URL to check
@@ -77,7 +81,7 @@ class Oauth2ClientConfig(object):
         @rtype: bool
         @return: True if URL is the redirect URI otherwise False
         """
-        redirect_uri = self._construct_url([host_url, self.base_url_path, self.redirect_uri])
+        redirect_uri = self._construct_url([application_url, self.base_url_path, self.redirect_uri])
         (path_url, sep, query) = url.partition('?')
         return redirect_uri == path_url
 
@@ -120,14 +124,14 @@ class Oauth2Client(object):
         for k, v in client_config.kw.iteritems():
             setattr(self, k, v)
 
-    def call_with_access_token(self, scope, host_url, callback):
+    def call_with_access_token(self, scope, application_url, callback):
         """Calls a specified callable providing an access token.
         
         @type scope: str
         @param scope: required OAuth token scope
 
-        @type host_url: str
-        @param host_url: host part of URL
+        @type application_url: str
+        @param application_url: application base URL
 
         @type callback: callable called with arguments
             (access_token, error, error_description)
@@ -148,7 +152,7 @@ class Oauth2Client(object):
 
         # Client does not have an access token, so create redirect URI with
         # which to initiate the process of getting one.
-        redirect_uri = self.client_config.make_redirect_uri(host_url)
+        redirect_uri = self.client_config.make_redirect_uri(application_url)
         parameters = {
             'client_id': self.client_config.client_id,
             'redirect_uri': redirect_uri,
@@ -191,16 +195,16 @@ class Oauth2Client(object):
                          error, error_description)
                 return callback(None, error, error_description)
             log.debug("Valid redirect from OAuth authorization server")
-            return self.request_access_token(code, request.host_url, request,
+            return self.request_access_token(code, request.application_url, request,
                                              callback)
 
-    def request_access_token(self, code, host_url, request, callback):
+    def request_access_token(self, code, application_url, request, callback):
         """
         @type code: str
         @param code: authorization code
 
-        @type host_url: str
-        @param host_url: host part of URL
+        @type application_url: str
+        @param application_url: application base URL
 
         @type request: webob.Request
         @param request: request object
@@ -216,7 +220,7 @@ class Oauth2Client(object):
         parameters = {
             'grant_type': 'authorization_code',
             'code': code,
-            'redirect_uri': self.client_config.make_redirect_uri(host_url)}
+            'redirect_uri': self.client_config.make_redirect_uri(application_url)}
         self.additional_access_token_request_parameters(parameters, request)
         log.debug("Requesting access token - parameters: %s", parameters)
         data = urllib.urlencode(parameters)

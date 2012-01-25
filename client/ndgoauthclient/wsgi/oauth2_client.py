@@ -82,14 +82,14 @@ class Oauth2ClientMiddleware(object):
                 '"%s" found in environ' % self.session_env_key)
 
         # Check whether redirecting back after requesting authorization.
-        if self.client_config.is_redirect_uri(req.host_url, req.url):
+        if self.client_config.is_redirect_uri(req.application_url, req.url):
             log.debug("Redirected back after requesting authorization.")
             token = self._get_token_after_redirect(session, req)
             original_environ = session[self.__class__.SESSION_CALL_CONTEXT_KEY]
         else:
             # Start the OAuth2 transaction to get a certificate.
             log.debug("Starting OAuth2 protocol")
-            (token, redirect_url) = self._get_token(session, req.host_url)
+            (token, redirect_url) = self._get_token(session, req.application_url)
             if redirect_url:
                 session[self.__class__.SESSION_CALL_CONTEXT_KEY] = original_environ
                 session.save()
@@ -154,12 +154,12 @@ class Oauth2ClientMiddleware(object):
     def filter_app_factory(cls, app, app_conf, **local_conf):
         return cls(app, app_conf, **local_conf)
 
-    def _get_token(self, session, host_url):
+    def _get_token(self, session, application_url):
         """Gets a token using the OAuth2 client.
         @type session: Beaker SessionObject
         @param session: session
-        @type host_url: str
-        @param host_url: host part of request URL
+        @type application_url: str
+        @param application_url: application base part of request URL
         @rtype: tuple (
             result type of callback or None
             str or None
@@ -174,7 +174,7 @@ class Oauth2ClientMiddleware(object):
         callback = TokenRetriever(client)
 
         (result, redirect_url) = client.call_with_access_token(
-            scope='', host_url=host_url, callback=callback)
+            scope='', application_url=application_url, callback=callback)
 
         return (result, redirect_url)
 

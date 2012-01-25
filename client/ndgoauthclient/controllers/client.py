@@ -44,9 +44,11 @@ class ClientController(BaseController):
         return 'This is an OAuth 2.0 test client.'
 
     def hello(self):
-        client = Oauth2Client.get_client_instance(session, self.client_config, create=True)
+        client = Oauth2Client.get_client_instance(session, self.client_config,
+                                                  create=True)
         (result, redirect_url) = client.call_with_access_token(
-            scope='scope1 scope2', host_url=request.host_url, callback=self.all_done)
+            scope='scope1 scope2', application_url=request.application_url,
+            callback=self.all_done)
         if redirect_url:
             redirect(redirect_url)
         else:
