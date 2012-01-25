@@ -95,6 +95,7 @@ class Oauth2AuthorizationMiddleware(object):
 
         # Determine what operation the URL specifies.
         actionPath = None
+        log.debug("Request path_info: %s", req.path_info)
         if req.path_info.startswith(self.base_path):
             actionPath = req.path_info[len(self.base_path):]
         methodName = self.__class__.method.get(actionPath, '')
@@ -107,9 +108,12 @@ class Oauth2AuthorizationMiddleware(object):
             self._set_client_authorizations_in_environ(session, environ)
             return self._app(environ, start_response)
         else:
+            response = "OAuth 2.0 Authorization Filter - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
-                           [('Content-type', 'text/plain')])
-            return ["OAuth 2.0 Authorization Filter - Invalid URL"]
+                           [('Content-type', 'text/plain'),
+                            ('Content-length', str(len(response)))
+                            ])
+            return [response]
 
     def _set_client_authorizations_in_environ(self, session, environ):
         """
@@ -196,7 +200,7 @@ class Oauth2AuthorizationMiddleware(object):
         tmpl_file = open(self.client_authorization_form)
         tmpl = MarkupTemplate(tmpl_file)
         tmpl_file.close()
-        submit_url = req.host_url + self.base_path + '/client_auth'
+        submit_url = req.application_url + self.base_path + '/client_auth'
         c = {'client_name': client.name,
              'client_id': client_id,
              'scope': scope,
@@ -278,13 +282,16 @@ class Oauth2AuthorizationMiddleware(object):
         return ("%d %s" % (status, httplib.responses[status]))
 
     def _redirect(self, url, start_response):
+        log.debug("Redirecting to %s", url)
         start_response(self._get_http_status_string(httplib.FOUND),
                [('Location', url.encode('ascii', 'ignore'))])
         return []
 
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
-        return local_conf.get(prefix + key, cls.propertyDefaults.get(key, None))
+        value = local_conf.get(prefix + key, cls.propertyDefaults.get(key, None))
+        log.debug("Oauth2AuthorizationMiddleware configuration %s=%s", key, value)
+        return value
 
     @classmethod
     def filter_app_factory(cls, app, app_conf, **local_conf):

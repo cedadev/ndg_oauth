@@ -66,7 +66,13 @@ class Oauth2ClientMiddleware(object):
         log.debug("Oauth2ClientMiddleware.__call__ ...")
 
         req = Request(environ)
-        original_environ = {'PATH_INFO': environ['PATH_INFO'], 'QUERY_STRING': environ['QUERY_STRING']}
+        log.debug("Request url: %s", req.url)
+        log.debug("Request host_url: %s", req.host_url)
+        log.debug("Request application_url: %s", req.application_url)
+        original_environ = {'PATH_INFO': environ['PATH_INFO'],
+                            'QUERY_STRING': environ['QUERY_STRING'],
+                            'SCRIPT_NAME': environ['SCRIPT_NAME']}
+        log.debug("Request environ: %s", environ)
 
         # Get session.
         session = environ.get(self.session_env_key)
@@ -82,6 +88,7 @@ class Oauth2ClientMiddleware(object):
             original_environ = session[self.__class__.SESSION_CALL_CONTEXT_KEY]
         else:
             # Start the OAuth2 transaction to get a certificate.
+            log.debug("Starting OAuth2 protocol")
             (token, redirect_url) = self._get_token(session, req.host_url)
             if redirect_url:
                 session[self.__class__.SESSION_CALL_CONTEXT_KEY] = original_environ
@@ -135,7 +142,9 @@ class Oauth2ClientMiddleware(object):
 
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
-        return local_conf.get(prefix + key, cls.propertyDefaults.get(key, None))
+        value = local_conf.get(prefix + key, cls.propertyDefaults.get(key, None))
+        log.debug("Oauth2ClientMiddleware configuration %s=%s", key, value)
+        return value
 
     @staticmethod
     def _get_http_status_string(status):
@@ -159,7 +168,8 @@ class Oauth2ClientMiddleware(object):
             result of callback or None if a redirect is needed
             redirect URI if redirect needed or None
         """
-        client = self._oauth_client_class.get_client_instance(session, self.client_config, create=True)
+        client = self._oauth_client_class.get_client_instance(session,
+                                                self.client_config, create=True)
 
         callback = TokenRetriever(client)
 
@@ -176,10 +186,12 @@ class Oauth2ClientMiddleware(object):
         @rtype: result type of callback
         @return: result of callback
         """
-        client = self._oauth_client_class.get_client_instance(session, self.client_config)
+        client = self._oauth_client_class.get_client_instance(session,
+                                                            self.client_config)
         if client:
             # Return callback result.
-            return client.call_with_access_token_redirected_back(req)
+            callback = TokenRetriever(client)
+            return client.call_with_access_token_redirected_back(req, callback)
         else:
             raise Exception("No OAuth client created for session.")
 

@@ -105,9 +105,9 @@ class Oauth2ClientConfig(object):
 class Oauth2Client(object):
     """OAuth 2.0 client
     """
+    ACCESS_TOKEN_ENCODING = 'utf-8'
     RESPONSE_TYPE = 'code'
     SESSION_ID_KEY = 'oauth_client_instance_id'
-    client_instances = {}
 
     def __init__(self, client_config):
         """
@@ -149,7 +149,6 @@ class Oauth2Client(object):
         # Client does not have an access token, so create redirect URI with
         # which to initiate the process of getting one.
         redirect_uri = self.client_config.make_redirect_uri(host_url)
-        self.callback = callback
         parameters = {
             'client_id': self.client_config.client_id,
             'redirect_uri': redirect_uri,
@@ -162,11 +161,15 @@ class Oauth2Client(object):
         url = self._make_combined_url(self.client_config.authorization_endpoint, parameters, self.state)
         return (None, url)
 
-    def call_with_access_token_redirected_back(self, request):
+    def call_with_access_token_redirected_back(self, request, callback):
         """ Called after redirection following authorization process.
 
         @type request: webob.Request
         @param request: request object
+
+        @type callback: callable called with arguments
+            (access_token, error, error_description)
+        @param callback: callable to call when the token is available
 
         @rtype: any
         @return: result from callback
@@ -179,18 +182,19 @@ class Oauth2Client(object):
         if error:
             log.info("Error from OAuth authorization server: %s - %s",
                      error, error_description)
-            return self.callback(None, error, error_description)
+            return callback(None, error, error_description)
         else:
             if state != self.state:
                 error = 'Inconsistent state'
                 error_description = 'State value incorrect implying request is not the result of legitimate OAuth redirection.'
                 log.info("Erroneous request to redirect URL: %s - %s",
                          error, error_description)
-                return self.callback(None, error, error_description)
+                return callback(None, error, error_description)
             log.debug("Valid redirect from OAuth authorization server")
-            return self.request_access_token(code, request.host_url, request)
+            return self.request_access_token(code, request.host_url, request,
+                                             callback)
 
-    def request_access_token(self, code, host_url, request):
+    def request_access_token(self, code, host_url, request, callback):
         """
         @type code: str
         @param code: authorization code
@@ -201,6 +205,10 @@ class Oauth2Client(object):
         @type request: webob.Request
         @param request: request object
 
+        @type callback: callable called with arguments
+            (access_token, error, error_description)
+        @param callback: callable to call when the token is available
+
         @rtype: any
         @return: result from callback
         """
@@ -210,6 +218,7 @@ class Oauth2Client(object):
             'code': code,
             'redirect_uri': self.client_config.make_redirect_uri(host_url)}
         self.additional_access_token_request_parameters(parameters, request)
+        log.debug("Requesting access token - parameters: %s", parameters)
         data = urllib.urlencode(parameters)
         response_json = urlfetcher.fetch_stream_from_url(
             self.client_config.access_token_endpoint, data, self.client_config.ssl_config)
@@ -218,14 +227,15 @@ class Oauth2Client(object):
         if 'error' in response:
             error = response['error']
             error_description = response.get('error_description', None)
-            return self.callback(None, error, error_description)
+            return callback(None, error, error_description)
         elif access_token is None:
             error = 'invalid_request'
             error_description = 'Error retrieving access token - no access token returned.'
-            return self.callback(None, error, error_description)
+            return callback(None, error, error_description)
         else:
-            self.access_token = access_token
-            return self.callback(access_token, None, None)
+            self.access_token = access_token.encode(self.ACCESS_TOKEN_ENCODING)
+            log.debug("Access token received: %s", self.access_token)
+            return callback(self.access_token, None, None)
 
     def additional_access_token_request_parameters(self, parameters, request):
         """
@@ -290,14 +300,10 @@ class Oauth2Client(object):
         """
         client = None
         if cls.SESSION_ID_KEY in session:
-            client_instance_id = session[cls.SESSION_ID_KEY]
-            if client_instance_id in cls.client_instances:
-                client = cls.client_instances[client_instance_id]
+            client = session[cls.SESSION_ID_KEY]
         if client is None and create:
             client = cls(client_config)
-            client_instance_id = uuid.uuid4().hex
-            session[cls.SESSION_ID_KEY] = client_instance_id
-            cls.client_instances[client_instance_id] = client
+            session[cls.SESSION_ID_KEY] = client
             session.save()
         return client
 

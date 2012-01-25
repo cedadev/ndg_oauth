@@ -50,7 +50,7 @@ class WsgiTestApp(object):
 
         start_response('200 OK', 
                        [('Content-type', 'text/html'),
-                        ('Content-length', sum([len(r) for r in response]))])
+                        ('Content-length', str(sum([len(r) for r in response])))])
         return response
 
     @classmethod

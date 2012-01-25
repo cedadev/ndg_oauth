@@ -10,6 +10,7 @@ __revision__ = "$Id$"
 import httplib
 import logging
 import urllib
+import urlparse
 
 from webob import Request
 
@@ -142,6 +143,7 @@ class Oauth2ServerMiddleware(object):
         """
         log.debug("Oauth2ServerMiddleware.__call__ ...")
         req = Request(environ)
+        log.debug("Request path_info: %s", req.path_info)
 
         # Determine what operation the URL specifies.
         actionPath = None
@@ -156,9 +158,12 @@ class Oauth2ServerMiddleware(object):
             log.debug("Delegating to lower filter/application.")
             return self._app(environ, start_response)
         else:
+            response = "OAuth 2.0 Server - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
-                           [('Content-type', 'text/plain')])
-            return ["OAuth 2.0 Server - Invalid URL"]
+                           [('Content-type', 'text/plain'),
+                            ('Content-length', str(len(response)))
+                            ])
+            return [response]
 
     def authorize(self, req, start_response):
         """Handles OAuth 2 authorize request.
@@ -191,10 +196,13 @@ class Oauth2ServerMiddleware(object):
         # Request authorization grant.
         (redirect_uri, error, error_description) = self._authorizationServer.authorize(req, client_authorized)
         if error:
+            response = ("%s: %s" %(error, error_description))
             log.error("Returning error: %s - %s", error, error_description)
             start_response(self._get_http_status_string(httplib.BAD_REQUEST),
-                           [('Content-type', 'text/plain')])
-            return[("%s: %s" %(error, error_description))]
+                           [('Content-type', 'text/plain'),
+                            ('Content-length', str(len(response)))
+                            ])
+            return[response]
         else:
             return self._redirect(redirect_uri, start_response)
 
@@ -222,9 +230,21 @@ class Oauth2ServerMiddleware(object):
                           'scope': scope,
                           'user': user,
                           'original_url': req.url}
-            url = ("%s?%s" % (self.client_authorization_url, urllib.urlencode(url_params)))
+            url = ("%s?%s" % (self._make_client_authorization_url(req),
+                              urllib.urlencode(url_params)))
             return (None, url)
         return (client_authorized, None)
+
+    def _make_client_authorization_url(self, req):
+        parts = urlparse.urlparse(self.client_authorization_url)
+        if (parts.scheme and parts.netloc):
+            # Absolute URL:
+            return self.client_authorization_url
+        else:
+            # Relative - append to application URL:
+            return '/'.join([req.application_url.rstrip('/'),
+                             self.client_authorization_url.lstrip('/')])
+
 
     def access_token(self, req, start_response):
         """Handles OAuth 2 access token request.
@@ -238,9 +258,13 @@ class Oauth2ServerMiddleware(object):
         @return: WSGI response
         """
         (response, error_status, error_description) = self._authorizationServer.access_token(req)
+        log.debug("Access token response is of type %s", type(response))
+        if response is None:
+            response = ''
         headers = [
             ('Content-Type', 'application/json; charset=UTF-8'),
             ('Cache-Control', 'no-store'),
+            ('Content-length', str(len(response))),
             ('Pragma', 'no-store')
         ]
         status_str = self._get_http_status_string(error_status if error_status else httplib.OK)
@@ -262,9 +286,12 @@ class Oauth2ServerMiddleware(object):
         @return: WSGI response
         """
         (response, error_status, error_description) = self._authorizationServer.check_token(req)
+        if response is None:
+            response = ''
         headers = [
             ('Content-Type', 'application/json; charset=UTF-8'),
             ('Cache-Control', 'no-store'),
+            ('Content-length', str(len(response)))
             ('Pragma', 'no-store')
         ]
         status_str = self._get_http_status_string(error_status if error_status else httplib.OK)
@@ -287,6 +314,7 @@ class Oauth2ServerMiddleware(object):
         @rtype: iterable
         @return: WSGI response
         """
+        log.debug("Redirecting to %s", url)
         start_response(self._get_http_status_string(httplib.FOUND),
                [('Location', url.encode('ascii', 'ignore'))])
         return []
@@ -326,7 +354,9 @@ class Oauth2ServerMiddleware(object):
 
     @classmethod
     def _get_config_option(cls, conf, key):
-        return conf.pop(key, cls.propertyDefaults.get(key, None))
+        value = conf.pop(key, cls.propertyDefaults.get(key, None))
+        log.debug("Oauth2ServerMiddleware configuration %s=%s", key, value)
+        return value
 
     @classmethod
     def filter_app_factory(cls, app, app_conf, **local_conf):

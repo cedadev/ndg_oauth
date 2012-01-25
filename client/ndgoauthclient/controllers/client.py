@@ -55,7 +55,8 @@ class ClientController(BaseController):
     def redirect_target(self):
         client = Oauth2Client.get_client_instance(session, self.client_config)
         if client:
-            return client.call_with_access_token_redirected_back(request)
+            return client.call_with_access_token_redirected_back(request,
+                                                        callback=self.all_done)
         else:
             return "No OAuth client created for session."
 

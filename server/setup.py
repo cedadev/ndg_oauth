@@ -7,11 +7,11 @@ except ImportError:
 
 setup(
     name='ndgoauthserver',
-    version='0.1',
-    description='',
-    author='',
-    author_email='',
-    url='',
+    version='0.1.0',
+    description='OAuth 2.0 server providing MyProxy certificates as access tokens',
+    author='R. B. Wilkinson',
+    #author_email='',
+    #url='',
     install_requires=[
         "Pylons>=1.0",
         "Genshi>=0.4",
