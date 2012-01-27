@@ -120,7 +120,6 @@ class Oauth2Client(object):
         """
         self.client_config = client_config
         self.access_token = None
-        self.callback = None
         for k, v in client_config.kw.iteritems():
             setattr(self, k, v)
 
