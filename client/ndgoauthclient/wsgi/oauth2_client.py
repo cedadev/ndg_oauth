@@ -126,7 +126,8 @@ class Oauth2ClientMiddleware(object):
         client_key = cls._get_config_option(prefix, local_conf, 'client_key')
         ca_cert_file = cls._get_config_option(prefix, local_conf, 'ca_cert_file')
         ca_dir = cls._get_config_option(prefix, local_conf, 'ca_dir')
-        ssl_config = SSlContextConfig(client_key, client_cert, ca_cert_file, ca_dir, True)
+        self.ssl_config = SSlContextConfig(client_key, client_cert,
+                                           ca_cert_file, ca_dir, True)
 
         # OAuth client configuration
         certificate_request_parameter = cls._get_config_option(prefix, local_conf, cls.CERTIFICATE_REQUEST_PARAMETER_OPTION)
@@ -137,7 +138,7 @@ class Oauth2ClientMiddleware(object):
         redirect_uri = 'oauth_redirect'
         self.client_config = Oauth2ClientConfig(
             client_id, authorization_endpoint, access_token_endpoint,
-            base_url_path, redirect_uri, ssl_config,
+            base_url_path, redirect_uri,
             certificate_request_parameter=certificate_request_parameter)
 
     @classmethod
@@ -175,6 +176,7 @@ class Oauth2ClientMiddleware(object):
 
         (result, redirect_url) = client.call_with_access_token(
             scope='', application_url=application_url, callback=callback)
+        session.save()
 
         return (result, redirect_url)
 
@@ -191,7 +193,17 @@ class Oauth2ClientMiddleware(object):
         if client:
             # Return callback result.
             callback = TokenRetriever(client)
-            return client.call_with_access_token_redirected_back(req, callback)
+            result = client.call_with_access_token_redirected_back(req,
+                                                                   callback,
+                                                                self.ssl_config)
+            # Save client state, which includes the token.
+            session.save()
+            # Save only marks the session for persistence at the end of the HTTP
+            # transaction. Persist now so that it is available if a new request
+            # is made from nested middleware.
+            session.persist()
+
+            return result
         else:
             raise Exception("No OAuth client created for session.")
 

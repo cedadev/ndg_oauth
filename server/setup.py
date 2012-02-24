@@ -7,7 +7,7 @@ except ImportError:
 
 setup(
     name='ndgoauthserver',
-    version='0.1.0',
+    version='0.1.1',
     description='OAuth 2.0 server providing MyProxy certificates as access tokens',
     author='R. B. Wilkinson',
     #author_email='',

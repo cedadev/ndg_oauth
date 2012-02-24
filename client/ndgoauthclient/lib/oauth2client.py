@@ -20,7 +20,7 @@ class Oauth2ClientConfig(object):
     """OAuth client configuration.
     """
     def __init__(self, client_id, authorization_endpoint, access_token_endpoint,
-                 base_url_path, redirect_uri, ssl_config, **kw):
+                 base_url_path, redirect_uri, **kw):
         """
         @type client_id: str
         @param client_id: OAuth client ID
@@ -40,9 +40,6 @@ class Oauth2ClientConfig(object):
         @param redirect_uri: URL to which the OAuth authorization server should
         redirect after an authorization request
 
-        @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
-        @param ssl_config: SSL configuration
-
         @type kw: dict
         @param kw: additional parameters for configuring extended client classes
         """
@@ -51,7 +48,6 @@ class Oauth2ClientConfig(object):
         self.access_token_endpoint = access_token_endpoint
         self.base_url_path = base_url_path
         self.redirect_uri = redirect_uri
-        self.ssl_config = ssl_config
         self.kw = kw
 
     def make_redirect_uri(self, application_url):
@@ -164,7 +160,8 @@ class Oauth2Client(object):
         url = self._make_combined_url(self.client_config.authorization_endpoint, parameters, self.state)
         return (None, url)
 
-    def call_with_access_token_redirected_back(self, request, callback):
+    def call_with_access_token_redirected_back(self, request, callback,
+                                               ssl_config):
         """ Called after redirection following authorization process.
 
         @type request: webob.Request
@@ -173,6 +170,9 @@ class Oauth2Client(object):
         @type callback: callable called with arguments
             (access_token, error, error_description)
         @param callback: callable to call when the token is available
+
+        @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
+        @param ssl_config: SSL configuration
 
         @rtype: any
         @return: result from callback
@@ -194,10 +194,11 @@ class Oauth2Client(object):
                          error, error_description)
                 return callback(None, error, error_description)
             log.debug("Valid redirect from OAuth authorization server")
-            return self.request_access_token(code, request.application_url, request,
-                                             callback)
+            return self.request_access_token(code, request.application_url,
+                                             request, callback, ssl_config)
 
-    def request_access_token(self, code, application_url, request, callback):
+    def request_access_token(self, code, application_url, request, callback,
+                             ssl_config):
         """
         @type code: str
         @param code: authorization code
@@ -212,6 +213,9 @@ class Oauth2Client(object):
             (access_token, error, error_description)
         @param callback: callable to call when the token is available
 
+        @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
+        @param ssl_config: SSL configuration
+
         @rtype: any
         @return: result from callback
         """
@@ -224,7 +228,7 @@ class Oauth2Client(object):
         log.debug("Requesting access token - parameters: %s", parameters)
         data = urllib.urlencode(parameters)
         response_json = urlfetcher.fetch_stream_from_url(
-            self.client_config.access_token_endpoint, data, self.client_config.ssl_config)
+            self.client_config.access_token_endpoint, data, ssl_config)
         response = json.load(response_json)
         access_token = response.get('access_token', None)
         if 'error' in response:
@@ -304,10 +308,12 @@ class Oauth2Client(object):
         client = None
         if cls.SESSION_ID_KEY in session:
             client = session[cls.SESSION_ID_KEY]
+            log.debug("Found OAuth client in session.")
         if client is None and create:
             client = cls(client_config)
             session[cls.SESSION_ID_KEY] = client
             session.save()
+            log.debug("No OAuth client in session - created new one.")
         return client
 
     @classmethod
