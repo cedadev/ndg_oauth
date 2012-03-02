@@ -183,6 +183,12 @@ class Oauth2ServerMiddleware(object):
             start_response(self._get_http_status_string(httplib.UNAUTHORIZED), [])
             return []
 
+        # Stop immediately if the client is not registered.
+        (error, error_description
+                        ) = self._authorizationServer.is_registered_client(req)
+        if error:
+            return self._error_response(error, error_description,
+                                        start_response)
 
         # User authorization for the client is also required.
         (client_authorized, authz_uri) = self._check_client_authorization(user, req)
@@ -196,15 +202,21 @@ class Oauth2ServerMiddleware(object):
         # Request authorization grant.
         (redirect_uri, error, error_description) = self._authorizationServer.authorize(req, client_authorized)
         if error:
-            response = ("%s: %s" %(error, error_description))
-            log.error("Returning error: %s - %s", error, error_description)
-            start_response(self._get_http_status_string(httplib.BAD_REQUEST),
-                           [('Content-type', 'text/plain'),
-                            ('Content-length', str(len(response)))
-                            ])
-            return[response]
+            self._error_response(error, error_description, start_response)
         else:
             return self._redirect(redirect_uri, start_response)
+
+    def _error_response(self, error, error_description, start_response):
+        """Returns and error response.
+        """
+        response = ("%s: %s" %(error, error_description)).encode('ascii',
+                                                                 'ignore')
+        log.error("Returning error: %s - %s", error, error_description)
+        start_response(self._get_http_status_string(httplib.BAD_REQUEST),
+                       [('Content-type', 'text/plain'),
+                        ('Content-length', str(len(response)))
+                        ])
+        return[response]
 
     def _check_client_authorization(self, user, req):
         """

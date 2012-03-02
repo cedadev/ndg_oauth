@@ -10,7 +10,6 @@ __revision__ = "$Id$"
 import httplib
 import logging
 
-from genshi.template import MarkupTemplate
 from webob import Request
 
 from ndg.oauth.server.lib.register.client import ClientRegister
@@ -204,16 +203,21 @@ class Oauth2AuthorizationMiddleware(object):
         @return: WSGI response
         """
         client = self.client_register.register.get(client_id)
-#        tmpl_file = open(self.client_authorization_form)
-#        tmpl = MarkupTemplate(tmpl_file)
-#        tmpl_file.close()
-        submit_url = req.application_url + self.base_path + '/client_auth'
-        c = {'client_name': client.name,
-             'client_id': client_id,
-             'scope': scope,
-             'submit_url': submit_url}
-#        response = tmpl.generate(c=c).render('html')
-        response = self.renderer.render(self.client_authorization_form, c)
+        if client is None:
+            # Client ID is not registered.
+            log.error("OAuth client of ID %s is not registered with the server",
+                      client_id)
+
+            response = (
+                "OAuth client of ID %s is not registered with the server" %
+                client_id)
+        else:
+            submit_url = req.application_url + self.base_path + '/client_auth'
+            c = {'client_name': client.name,
+                 'client_id': client_id,
+                 'scope': scope,
+                 'submit_url': submit_url}
+            response = self.renderer.render(self.client_authorization_form, c)
         start_response(self._get_http_status_string(httplib.OK),
            [('Content-type', 'text/html'),
             ('Content-length', str(len(response)))

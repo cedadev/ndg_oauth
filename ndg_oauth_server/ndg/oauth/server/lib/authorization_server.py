@@ -411,3 +411,21 @@ class AuthorizationServer(object):
             content_dict['error'] = error
         content = json.dumps(content_dict)
         return (content, None, None)
+
+    def is_registered_client(self, request):
+        """Determines whether the client ID in the request is registered.
+        @type request: WebOb.request
+        @param request: request
+        @rtype: tuple (basestring, basestring) or (NoneType, NoneType)
+        @return: (error, error description) or None if client ID is found and
+        registered
+        """
+        client_id = request.params.get('client_id', None)
+        if not client_id:
+            return ('invalid_request', 'Missing request parameter: client_id')
+        else:
+            error_description = self.client_register.is_registered_client(
+                                                                    client_id)
+            if error_description:
+                return ('unauthorized_client', error_description)
+        return (None, None)

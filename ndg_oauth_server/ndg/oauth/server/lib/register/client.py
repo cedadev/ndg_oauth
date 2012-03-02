@@ -49,7 +49,17 @@ class ClientRegister(object):
             config.get(client_section_name, 'authentication_data'))
         self.register[client_id] = client_registration
 
+    def is_registered_client(self, client_id):
+        """Determines if a client ID is in the client register.
+        """
+        if client_id not in self.register:
+            return ('Client of id "%s" is not registered.' % client_id)
+        return None
+
     def is_valid_client(self, client_id, redirect_uri):
+        """Determines if a client ID is in the client register and the
+        redirect_uri is registered for that client.
+        """
         # Check if client ID is registered.
         if client_id not in self.register:
             return ('Client of id "%s" is not registered.' % client_id)
