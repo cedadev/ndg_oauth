@@ -1,0 +1,93 @@
+/*
+* NDG Security OpenID Provider and Relying Party Stylesheet
+*/
+
+body, html {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background-color: #eee;
+	color:#333333;
+	font-family:Verdana, Arial, Helvetica, sans-serif;
+	line-height:1.4;
+	font-size: small;
+}
+
+.helptxt {
+    font-size: smaller; 
+    background-color: #e6f0f8;
+}
+
+div.hidden {
+    display: none;
+}
+
+.helpicon
+{
+    cursor:help;
+}
+
+/* Top Banner Div */
+#header {
+    color: #8c8c8c;
+    height: 60px;
+    background: #ffffff;
+    margin-bottom: 10px; 
+    padding-top: 3px; 
+    padding-right: 10px; 
+    padding-left: 10px; 
+    clear: both; 
+    margin-top:10px; 
+    border: solid #8c8c8c;
+    border-width: 0 0 2px 0;
+    background-repeat:no-repeat;
+}
+
+#logo{
+ position:absolute;
+ top:15px;
+ left:20px;
+ width:200px;
+ height:63px;
+ z-index:900;
+}
+
+/* We don't want borders on linked images */
+a img {border: none;}
+
+/* And now the footer */
+#footer {
+    color: #ffffff; 
+    background-color: #003153; 
+    padding-top: 3px; 
+    clear: both; 
+    margin-top:10px; 
+    font-size: smaller; 
+}
+
+a.FooterLink:link {color:orange}
+a.FooterLink:visited {color:teal}
+
+/* Footer not yet checked */
+Footer.td {border-style:solid; border-color:black; border-width:1px;}
+/* Footer not yet checked complete */
+
+/*
+* Provider Login
+*/
+#loginForm {
+    margin-bottom: 50px; 
+    padding-top: 0px; 
+    padding-right: 10px; 
+    padding-left: 10px; 
+    clear: both; 
+    margin-top:25px; 
+}
+
+div#main {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    -moz-border-radius: 10px 10px;
+    border-radius: 10px 10px;
+    margin: 20px;
+}

@@ -363,7 +363,7 @@ class AuthorizationServer(object):
                 raise OauthException('invalid_request', ('Parameter "%s" is repeated.' % key))
         return
 
-    def check_token(self, request):
+    def check_token(self, request, scope=None):
         """
         Simple service that could be used to validate bearer tokens. It would
         be called from a resource service that trusts this authorization
@@ -387,10 +387,13 @@ class AuthorizationServer(object):
         @type request: webob.Request
         @param request: HTTP request object
 
+        @type scope: str
+        @param scope: required scope
+
         @rtype: tuple: (str, int, str)
         @return: tuple (
                      OAuth JSON response
-                     HTTP status if error
+                     HTTP status
                      error description
                  )
         """
@@ -398,19 +401,77 @@ class AuthorizationServer(object):
         if 'access_token' not in params:
             error = 'invalid_request'
         else:
-            access_token = request.params['access_token']
-            scope = request.params.get('scope', None)
-            (token, error) = self.access_token_register.get_token(access_token, scope)
-        
+            access_token = params['access_token']
+            if scope:
+                required_scope = scope
+            else:
+                required_scope = params.get('scope', None)
+            (token, error) = self.access_token_register.get_token(access_token,
+                                                                required_scope)
+
         status = {'invalid_request': httplib.BAD_REQUEST,
-                  'invalid_token': httplib.UNAUTHORIZED,
+                  'invalid_token': httplib.FORBIDDEN,
                   None: httplib.OK}.get(error, httplib.BAD_REQUEST)
 
         content_dict = {'status': status}
         if error:
             content_dict['error'] = error
         content = json.dumps(content_dict)
-        return (content, None, None)
+        return (content, status, error)
+
+    def get_registered_token(self, request, scope=None):
+        """
+        Checks that a token in the request is valid. It would
+        be called from a resource service that trusts this authorization
+        service. This is not part of the OAuth specification.
+
+        Request parameters
+
+        access_token
+              REQUIRED.  Bearer token
+        scope
+              OPTIONAL.  Scope 
+
+        Response:
+              application/json format:
+        status
+              HTTP status indicating the access control decision
+        error
+              error as described in
+              http://tools.ietf.org/html/draft-ietf-oauth-v2-22#section-5.2
+
+        @type request: webob.Request
+        @param request: HTTP request object
+
+        @type scope: str
+        @param scope: required scope
+
+        @rtype: tuple: (str, int, str)
+        @return: tuple (
+                     access token
+                     HTTP status
+                     error description
+                 )
+        """
+        params = request.params
+        token = None
+        if 'access_token' not in params:
+            error = 'invalid_request'
+        else:
+            access_token = params['access_token']
+            if scope:
+                required_scope = scope
+            else:
+                required_scope = params.get('scope', None)
+            (token, error) = self.access_token_register.get_token(access_token,
+                                                                required_scope)
+
+        status = {'invalid_request': httplib.BAD_REQUEST,
+                  'invalid_token': httplib.FORBIDDEN,
+                  'insufficient_scope': httplib.FORBIDDEN,
+                  None: httplib.OK}.get(error, httplib.BAD_REQUEST)
+
+        return (token, status, error)
 
     def is_registered_client(self, request):
         """Determines whether the client ID in the request is registered.

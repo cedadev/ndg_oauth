@@ -1,0 +1,49 @@
+<!-- This is a bunch of named templates for use in pages -->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:py="http://genshi.edgewall.org/">
+    <?python from genshi import HTML ?>
+    <!-- HTML Header and Document header follow -->
+    
+    <head py:def="pagehead()" py:strip="True">
+        <title py:content="c.title">title</title>
+        <link media="all, screen" href="${c.baseURL}/layout/default.css" 
+            type="text/css" rel="stylesheet"/>
+        <link rel="icon" type="image/ico" 
+            href="${c.baseURL}/layout/favicon.jpg"/>
+        <script type="text/javascript" src="${c.baseURL}/js/toggleDiv.js"></script>     
+    </head>
+
+    <div py:def="header()" id="header">
+        <div py:if="c.heading">
+            <h1>${c.heading}</h1>
+        </div>
+        <div py:if="c.leftLogo" id="logo">
+            <img src="${c.leftLogo}" alt="${c.leftAlt}" />
+        </div>
+    </div>
+
+    <!-- Page Footer follows -->
+    <div py:def="footer()" id="footer">
+        <table width="100%"><tbody>
+            <tr>
+                <td align="left" width="60%" valign="top">
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td valign="top" py:if="c.leftImage and c.leftLink"><span py:replace="linkimage(c.leftLink, c.leftImage, c.leftAlt)"/></td>
+                                <td valign="top" py:if="c.footerText">${HTML(c.footerText)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+                <td align="right" valign="top" width="40%"><span py:replace="linkimage(c.rightLink, c.rightImage, c.rightAlt)"/></td>
+            </tr>
+        </tbody></table>
+    </div>
+    
+    <!-- Utility Functions follow -->
+    
+    <!-- hyperlinked image -->
+    <span py:def="linkimage(linkref,imageref,alttext)">
+        <a href="$linkref"><img src="$imageref" alt="$alttext" title="$alttext"/></a>
+    </span>
+</html>

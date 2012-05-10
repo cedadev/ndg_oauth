@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import logging
 
 from ndg.oauth.server.lib.register.register_base import RegisterBase
+import ndg.oauth.server.lib.register.scopeutil as scopeutil
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class AccessToken(object):
         self.token_id = token_id
         self.token_type = token_type
         self.grant = grant
-        self.scope = grant.scope.split() if grant.scope else []
+        self.scope = scopeutil.scopeStringToList(grant.scope_str)
         self.timestamp = datetime.now()
         self.lifetime = lifetime
         self.expires = self.timestamp + timedelta(days=0, seconds=lifetime)
@@ -40,18 +41,31 @@ class AccessTokenRegister(RegisterBase):
         super(AccessTokenRegister, self).__init__('AccessTokenRegister', cache_opts)
 
     def add_token(self, token):
+        """Adds a token to the register.
+        @type token: AccessToken
+        @param token: access token
+        """
         if self.has_key(token.token_id):
             # Internal error
             log.error("Repeated attempt to add token of ID: %s", token.token_id)
             return False
 
         self.set_value(token.token_id, token)
+        log.debug("Added token of ID: %s", token.token_id)
         return True
 
     def get_token(self, token_id, scope):
+        """Retrieves a registered token by token ID and required scope.
+        @type token_id: basestring
+        @param token_id: token ID
+        @type scope: basestring
+        @param scope: required scopes as space separated string
+        """
         try:
             token = self.get_value(token_id)
         except KeyError:
+            log.debug("Request for token of ID that is not registered: %s",
+                      token_id)
             return (None, 'invalid_token')
 
         if not token.valid:
@@ -61,8 +75,9 @@ class AccessTokenRegister(RegisterBase):
             log.debug("Request for expired token of ID: %s", token_id)
             return (None, 'invalid_token')
         # Check scope
-        if scope and (scope not in token.scope):
+        if not scopeutil.isScopeGranted(token.scope,
+                                        scopeutil.scopeStringToList(scope)):
             log.debug("Request for token of ID: %s - token was not granted scope %s",
                       token_id, scope)
-            return (None, 'invalid_token')
+            return (None, 'insufficient_scope')
         return (token, None)

@@ -23,7 +23,7 @@ class AuthorizationGrant(object):
         self.client_id = request.client_id
         self.redirect_uri = request.redirect_uri
         # Allow for authorized scope to be different from requested scope.
-        self.scope = (scope if scope is not None else request.scope)
+        self.scope_str = (scope if scope is not None else request.scope)
         self.additional_data = additional_data
         self.timestamp = datetime.utcnow()
         self.expires = self.timestamp + timedelta(days=0, seconds=lifetime)

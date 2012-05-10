@@ -8,6 +8,7 @@ __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
 import httplib
+import json
 import logging
 import urllib
 import urlparse
@@ -19,8 +20,8 @@ from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator import MyPro
 from ndg.oauth.server.lib.authenticate.certificate_client_authenticator import CertificateClientAuthenticator
 from ndg.oauth.server.lib.authenticate.noop_client_authenticator import NoopClientAuthenticator
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
-from ndg.oauth.server.lib.authorize.authorizer import Authorizer
 from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import AuthorizerStoringIdentifier
+from ndg.oauth.server.lib.resource_request.myproxy_cert_request import MyproxyCertRequest
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class Oauth2ServerMiddleware(object):
       the environ, e.g., ndg.oauth.server.wsgi.authorization_filter.
     """
     PARAM_PREFIX = 'oauth2server.'
+    CERT_DN_ENVIRON_KEY = 'SSL_CLIENT_S_DN'
     # Configuration options
     ACCESS_TOKEN_LIFETIME_OPTION = 'access_token_lifetime'
     ACCESS_TOKEN_TYPE_OPTION = 'access_token_type'
@@ -67,7 +69,8 @@ class Oauth2ServerMiddleware(object):
     method = {
         '/access_token': 'access_token',
         '/authorize': 'authorize',
-        '/check_token': 'check_token'
+        '/check_token': 'check_token',
+        '/request_certificate': 'request_certificate'
     }
 
     def __init__(self, app, app_conf, prefix=PARAM_PREFIX, **local_conf):
@@ -95,15 +98,9 @@ class Oauth2ServerMiddleware(object):
 
         if self.access_token_type == 'bearer':
             # Simple bearer token configuration.
-            authorizer = Authorizer(self.authorization_grant_lifetime_seconds)
             access_token_generator = BearerTokenGenerator(self.access_token_lifetime_seconds, self.access_token_type)
         elif self.access_token_type == 'myproxy':
             # Configure authorization server to use MyProxy certificates as access tokens.
-            authorizer = AuthorizerStoringIdentifier(
-                self.authorization_grant_lifetime_seconds,
-                user_identifier_env_key=self.user_identifier_env_key,
-                user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
-
             access_token_generator = MyProxyCertTokenGenerator(
                 self.access_token_lifetime_seconds, self.access_token_type,
                 certificate_request_parameter=self.certificate_request_parameter,
@@ -114,6 +111,12 @@ class Oauth2ServerMiddleware(object):
             raise ValueError("Invalid configuration value %s for %s" %
                              (self.access_token_type,
                               self.ACCESS_TOKEN_TYPE_OPTION))
+        # Store user identifier with grant - this isn't needed for the OAuth
+        # protocol but is needed to return certificates using MyProxy.
+        authorizer = AuthorizerStoringIdentifier(
+            self.authorization_grant_lifetime_seconds,
+            user_identifier_env_key=self.user_identifier_env_key,
+            user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
 
         # Determine client authentication type. A 'none' options is allowed so
         # that development/testing can be performed without running on Apache.
@@ -129,6 +132,12 @@ class Oauth2ServerMiddleware(object):
         self._authorizationServer = AuthorizationServer(
             self.client_register_file, authorizer, client_authenticator,
             access_token_generator, conf)
+
+        self._myproxy_cert_request = MyproxyCertRequest(
+            certificate_request_parameter=self.certificate_request_parameter,
+            myproxy_client_env_key=self.myproxy_client_env_key,
+            myproxy_global_password=self.myproxy_global_password,
+            user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
 
     def __call__(self, environ, start_response):
         """
@@ -176,19 +185,22 @@ class Oauth2ServerMiddleware(object):
         @rtype: iterable
         @return: WSGI response
         """
+        log.debug("authorize called")
+        # Stop immediately if the client is not registered.
+        (error, error_description
+                        ) = self._authorizationServer.is_registered_client(req)
+        if error:
+            log.debug("Error checking if client registered: %s - %s", error,
+                      error_description)
+            return self._error_response(error, error_description,
+                                        start_response)
+
         # User authentication is required before authorization can proceed.
         user = req.environ.get(self.user_identifier_env_key)
         if not user:
             log.debug("%s not in environ - authentication required" % self.user_identifier_env_key)
             start_response(self._get_http_status_string(httplib.UNAUTHORIZED), [])
             return []
-
-        # Stop immediately if the client is not registered.
-        (error, error_description
-                        ) = self._authorizationServer.is_registered_client(req)
-        if error:
-            return self._error_response(error, error_description,
-                                        start_response)
 
         # User authorization for the client is also required.
         (client_authorized, authz_uri) = self._check_client_authorization(user, req)
@@ -269,8 +281,8 @@ class Oauth2ServerMiddleware(object):
         @rtype: iterable
         @return: WSGI response
         """
+        log.debug("access_token called")
         (response, error_status, error_description) = self._authorizationServer.access_token(req)
-        log.debug("Access token response is of type %s", type(response))
         if response is None:
             response = ''
         headers = [
@@ -280,7 +292,10 @@ class Oauth2ServerMiddleware(object):
             ('Pragma', 'no-store')
         ]
         status_str = self._get_http_status_string(error_status if error_status else httplib.OK)
-            
+        if error_status:
+            log.debug("Error obtaining access token: %s - %s", status_str,
+                      error_description)
+
         start_response(status_str, headers)
         return [response]
 
@@ -303,11 +318,68 @@ class Oauth2ServerMiddleware(object):
         headers = [
             ('Content-Type', 'application/json; charset=UTF-8'),
             ('Cache-Control', 'no-store'),
-            ('Content-length', str(len(response)))
+            ('Content-length', str(len(response))),
             ('Pragma', 'no-store')
         ]
         status_str = self._get_http_status_string(error_status if error_status else httplib.OK)
-            
+
+        start_response(status_str, headers)
+        return [response]
+
+    def request_certificate(self, req, start_response):
+        """
+        Resource service to issue a certificate based on a certificate request
+        contained in the request and the identity of the client for whom the
+        access token was issued.
+        @type req: webob.Request
+        @param req: HTTP request object
+
+        @type start_response: 
+        @param start_response: WSGI start response function
+
+        @rtype: iterable
+        @return: WSGI response
+        """
+        log.debug("request_certificate called")
+        cert = None
+        error = None
+        status = httplib.OK
+        dn = req.environ.get(self.CERT_DN_ENVIRON_KEY)
+        if dn:
+            log.debug("Found certificate DN: %s", dn)
+        else:
+            # Client must be authenticated - no other error should be included
+            # in this case.
+            status = httplib.FORBIDDEN
+
+        if status == httplib.OK:
+            (token, status,
+                error) = self._authorizationServer.get_registered_token(req, dn)
+
+        if status == httplib.OK:
+            # Token is valid so get a certificate.
+            cert = self._myproxy_cert_request.get_resource(token, req)
+            if not cert:
+                status = httplib.INTERNAL_SERVER_ERROR
+
+        content_dict = {'status': status}
+        if error:
+            content_dict['error'] = error
+        if cert:
+            content_dict['certificate'] = cert
+        response = json.dumps(content_dict)
+
+        headers = [
+            ('Content-Type', 'application/json; charset=UTF-8'),
+            ('Cache-Control', 'no-store'),
+            ('Content-length', str(len(response))),
+            ('Pragma', 'no-store')
+        ]
+        status_str = self._get_http_status_string(status if status
+                                                  else httplib.OK)
+        if error:
+            log.debug("Error obtaining certificate: %s - %s", status_str, error)
+
         start_response(status_str, headers)
         return [response]
 

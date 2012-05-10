@@ -12,7 +12,8 @@ import logging
 import urllib
 import uuid
 
-import ndg.oauth.client.lib.urlfetcher as urlfetcher
+import ndg.httpsclient.utils as httpsclient_utils
+import ndg.httpsclient.ssl_context_util as ssl_context_util
 
 log = logging.getLogger(__name__)
 
@@ -227,8 +228,11 @@ class Oauth2Client(object):
         self.additional_access_token_request_parameters(parameters, request)
         log.debug("Requesting access token - parameters: %s", parameters)
         data = urllib.urlencode(parameters)
-        response_json = urlfetcher.fetch_stream_from_url(
-            self.client_config.access_token_endpoint, data, ssl_config)
+        response_json = httpsclient_utils.fetch_stream_from_url(
+            self.client_config.access_token_endpoint,
+            httpsclient_utils.Configuration(
+                    ssl_context_util.make_ssl_context_from_config(ssl_config)),
+            data)
         response = json.load(response_json)
         access_token = response.get('access_token', None)
         if 'error' in response:

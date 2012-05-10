@@ -15,6 +15,7 @@ from webob import Request
 from ndg.oauth.server.lib.register.client import ClientRegister
 from ndg.oauth.server.lib.register.client_authorization import (
                             ClientAuthorization, ClientAuthorizationRegister)
+from ndg.oauth.server.lib.render.configuration import RenderingConfiguration
 from ndg.oauth.server.lib.render.factory import callModuleObject
 from ndg.oauth.server.lib.render.renderer_interface import RendererInterface
 
@@ -30,6 +31,7 @@ class Oauth2AuthorizationMiddleware(object):
     CLIENT_AUTHORIZATIONS_SESSION_KEY = 'oauth2_client_authorizations'
     SESSION_CALL_CONTEXT_KEY = 'oauth2_client_authorizations_context'
     PARAM_PREFIX = 'oauth2authorization.'
+    LAYOUT_PREFIX = 'layout.'
     # Configuration options
     BASE_URL_PATH_OPTION = 'base_url_path'
     CLIENT_AUTHORIZATION_FORM_OPTION = 'client_authorization_form'
@@ -50,6 +52,18 @@ class Oauth2AuthorizationMiddleware(object):
         CLIENT_AUTHORIZATIONS_KEY_OPTION: 'client_authorizations',
         USER_IDENTIFIER_KEY_OPTION: 'REMOTE_USER'
     }
+    LAYOUT_PARAMETERS = ['heading',
+                         'title',
+                         'message',
+                         'leftLogo',
+                         'leftAlt',
+                         'leftImage',
+                         'leftLink',
+                         'rightAlt',
+                         'rightImage',
+                         'rightLink',
+                         'footerText',
+                         'helpIcon']
 
     def __init__(self, app, app_conf, prefix=PARAM_PREFIX, **local_conf):
         """
@@ -72,6 +86,10 @@ class Oauth2AuthorizationMiddleware(object):
         @param local_conf: attribute settings to apply
         """
         self._app = app
+        self._renderingConfiguration = RenderingConfiguration(
+                                                    self.LAYOUT_PARAMETERS,
+                                                    prefix + self.LAYOUT_PREFIX,
+                                                    local_conf)
         self._set_configuration(prefix, local_conf)
         self.client_register = ClientRegister(self.client_register_file)
         self.renderer = callModuleObject(self.renderer_class,
@@ -216,8 +234,10 @@ class Oauth2AuthorizationMiddleware(object):
             c = {'client_name': client.name,
                  'client_id': client_id,
                  'scope': scope,
-                 'submit_url': submit_url}
-            response = self.renderer.render(self.client_authorization_form, c)
+                 'submit_url': submit_url,
+                 'baseURL': req.application_url}
+            response = self.renderer.render(self.client_authorization_form,
+                            self._renderingConfiguration.merged_parameters(c))
         start_response(self._get_http_status_string(httplib.OK),
            [('Content-type', 'text/html'),
             ('Content-length', str(len(response)))
@@ -248,7 +268,7 @@ class Oauth2AuthorizationMiddleware(object):
                 ])
             return [response]
 
-        if ('yes-button' in req.params) and ('no-button' not in req.params):
+        if ('submit' in req.params) and ('cancel' not in req.params):
             log.debug("User authorized client.")
             granted = True
         else:

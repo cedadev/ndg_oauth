@@ -25,7 +25,6 @@ class GetUrlApp(object):
         "/": 'default',
         "/get": 'get'
     }
-    TOKEN_ENV_KEYNAME = 'oauth2client.token'
     def __init__(self, app, globalConfig, **localConfig):
         self.beakerSessionKeyName = globalConfig['beakerSessionKeyName']
         self.app = app
@@ -53,7 +52,7 @@ class GetUrlApp(object):
         request = Request(environ)
         response = ["<h2>WSGI Test Application - Get URL</h2>"]
 
-        # Unprotected:
+        # Access to proxy doesn't require certificate.
         ssl_context = ssl_context_util.make_ssl_context()
 
         # The URL of the security proxy is the root URL for the current

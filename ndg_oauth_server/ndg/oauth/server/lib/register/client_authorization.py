@@ -7,6 +7,8 @@ __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
+import ndg.oauth.server.lib.register.scopeutil as scopeutil
+
 class ClientAuthorization(object):
     """
     Represents authorizations granted by the resource owner to clients.
@@ -14,13 +16,21 @@ class ClientAuthorization(object):
     def __init__(self, user, client_id, scope, is_authorized):
         self.user = user
         self.client_id = client_id
-        self.scope = scope
+        self.scope = scopeutil.scopeStringToList(scope)
         self.is_authorized = is_authorized
 
     def eq_authz_basis(self, other):
+        """Determines whether a requested client authorization is equivalent to
+        a granted one.
+        @type other: ClientAuthorization
+        @param other: requested authorization
+        @rtype: bool
+        @return: True if the user and client ID are the same and if there are no
+        requested scopes that are not granted, otherwise False
+        """
         return ((self.user == other.user)
                 and (self.client_id == other.client_id)
-                and (self.scope == other.scope))
+                and scopeutil.isScopeGranted(self.scope, other.scope))
 
     def __repr__(self):
         return ("user: %s  client_id: %s  scope: %s  granted: %s" % (self.user, self.client_id, self.scope, self.is_authorized))
@@ -55,7 +65,7 @@ class ClientAuthorizationRegister(object):
 
     def __repr__(self):
         s = []
-        for u, uv in self.register.iteritems():
-            for c, cv in uv.iteritems():
+        for uv in self.register.itervalues():
+            for cv in uv.itervalues():
                 s.append(cv.__repr__())
         return ' '.join(s)
