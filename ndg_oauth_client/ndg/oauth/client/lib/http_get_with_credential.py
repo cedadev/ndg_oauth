@@ -81,7 +81,7 @@ class HttpGetWithCredential(object):
         if current_token:
             log.debug("Token ID: %s", current_token)
         else:
-            log.debug("No token found with environ key: %d",
+            log.debug("No token found with environ key: %s",
                       self.token_env_key)
         if ((self.token != current_token) or not self.user_ssl_context):
             log.debug("Certificate request needed")
