@@ -199,10 +199,13 @@ class AuthenticationFormMiddleware(object):
             repoze_who_api = get_api(req.environ)
             (identity, headers) = repoze_who_api.login(credentials)
             if identity is not None:
-                log.debug("Logged in as %r", identity)
+                logged_in_username = identity['repoze.who.userid']
+                log.debug("Logged in using username %s as %s", username,
+                          logged_in_username)
     
                 if self.combined_authorization:
-                    self._set_client_authorization(req, session, username)
+                    self._set_client_authorization(req, session,
+                                                   logged_in_username)
                 return_url = req.params.get(self.return_url_param)
                 return self._redirect(return_url, start_response, headers)
             else:
