@@ -2,10 +2,18 @@
 <?eclipse-pydev version="1.0"?>
 
 <pydev_project>
-<pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
-<path>/NDG OAuth/ndg_oauth_client</path>
-<path>/NDG OAuth/ndg_oauth_server</path>
+<pydev_property name="org.python.pydev.PYTHON_PROJECT_INTERPRETER">ndg_oauth Python 2.7</pydev_property>
+<pydev_property name="org.python.pydev.PYTHON_PROJECT_VERSION">python 2.7</pydev_property>
+<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
+<path>/Users/philipkershaw/Documents/workspace/ndg_httpsclient</path>
+<path>/Users/philipkershaw/Documents/workspace/MyProxyClient</path>
+<path>/Users/philipkershaw/Documents/workspace/MyProxyWebService</path>
+<path>/Users/philipkershaw/Documents/workspace/ndg_security_python/ndg_security_server</path>
+<path>/Users/philipkershaw/Documents/workspace/ndg_security_python/ndg_security_common</path>
+<path>/Users/philipkershaw/Documents/workspace/ndg_saml</path>
 </pydev_pathproperty>
-<pydev_property name="org.python.pydev.PYTHON_PROJECT_VERSION">python 2.6</pydev_property>
-<pydev_property name="org.python.pydev.PYTHON_PROJECT_INTERPRETER">python VE17</pydev_property>
+<pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
+<path>/ndg_oauth/ndg_oauth_client</path>
+<path>/ndg_oauth/ndg_oauth_server</path>
+</pydev_pathproperty>
 </pydev_project>
