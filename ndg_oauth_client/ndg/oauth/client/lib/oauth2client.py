@@ -12,8 +12,8 @@ import logging
 import urllib
 import uuid
 
-import ndg.httpsclient.utils as httpsclient_utils
-import ndg.httpsclient.ssl_context_util as ssl_context_util
+from ndg.httpsclient import utils as httpsclient_utils
+from ndg.httpsclient import ssl_context_util
 
 log = logging.getLogger(__name__)
 

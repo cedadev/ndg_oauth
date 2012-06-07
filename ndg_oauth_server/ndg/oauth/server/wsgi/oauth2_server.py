@@ -56,7 +56,7 @@ class Oauth2ServerMiddleware(object):
     # Configuration option defaults
     propertyDefaults = {
         ACCESS_TOKEN_LIFETIME_OPTION: 86400,
-        ACCESS_TOKEN_TYPE_OPTION: 'myproxy',
+        ACCESS_TOKEN_TYPE_OPTION: 'slcs',
         AUTHORIZATION_GRANT_LIFETIME_OPTION: 600,
         BASE_URL_PATH_OPTION: '',
         CERTIFICATE_REQUEST_PARAMETER_OPTION: 'certificate_request',
@@ -99,7 +99,7 @@ class Oauth2ServerMiddleware(object):
         if self.access_token_type == 'bearer':
             # Simple bearer token configuration.
             access_token_generator = BearerTokenGenerator(self.access_token_lifetime_seconds, self.access_token_type)
-        elif self.access_token_type == 'myproxy':
+        elif self.access_token_type == 'slcs':
             # Configure authorization server to use MyProxy certificates as access tokens.
             access_token_generator = MyProxyCertTokenGenerator(
                 self.access_token_lifetime_seconds, self.access_token_type,
