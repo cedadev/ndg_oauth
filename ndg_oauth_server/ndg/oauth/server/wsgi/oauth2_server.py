@@ -15,13 +15,19 @@ import urlparse
 
 from webob import Request
 
-from ndg.oauth.server.lib.access_token.bearer_token_generator import BearerTokenGenerator
-from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator import MyProxyCertTokenGenerator
-from ndg.oauth.server.lib.authenticate.certificate_client_authenticator import CertificateClientAuthenticator
-from ndg.oauth.server.lib.authenticate.noop_client_authenticator import NoopClientAuthenticator
+from ndg.oauth.server.lib.access_token.bearer_token_generator import \
+    BearerTokenGenerator
+from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator \
+    import MyProxyCertTokenGenerator
+from ndg.oauth.server.lib.authenticate.certificate_client_authenticator \
+    import CertificateClientAuthenticator
+from ndg.oauth.server.lib.authenticate.noop_client_authenticator import \
+    NoopClientAuthenticator
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
-from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import AuthorizerStoringIdentifier
-from ndg.oauth.server.lib.resource_request.myproxy_cert_request import MyproxyCertRequest
+from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import \
+    AuthorizerStoringIdentifier
+from ndg.oauth.server.lib.resource_request.myproxy_cert_request import \
+    MyproxyCertRequest
 
 log = logging.getLogger(__name__)
 

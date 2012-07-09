@@ -8,12 +8,9 @@
 <path>/Users/philipkershaw/Documents/workspace/ndg_httpsclient</path>
 <path>/Users/philipkershaw/Documents/workspace/MyProxyClient</path>
 <path>/Users/philipkershaw/Documents/workspace/MyProxyWebService</path>
-<path>/Users/philipkershaw/Documents/workspace/ndg_security_python/ndg_security_server</path>
-<path>/Users/philipkershaw/Documents/workspace/ndg_security_python/ndg_security_common</path>
-<path>/Users/philipkershaw/Documents/workspace/ndg_saml</path>
 </pydev_pathproperty>
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
-<path>/ndg_oauth/ndg_oauth_client</path>
 <path>/ndg_oauth/ndg_oauth_server</path>
+<path>/ndg_oauth/ndg_oauth_client</path>
 </pydev_pathproperty>
 </pydev_project>
