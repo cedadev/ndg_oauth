@@ -1,0 +1,20 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/">
+  <div py:def="oauthLogin()" id="loginForm">
+    <p>You have cancelled the OAuth login process. You have not authenticated yourself as a user.</p>
+  </div>
+
+  <xi:include href="base.html" />
+  <head>
+    <replace py:replace="pagehead()"/>
+  </head>
+  <body>
+    <div id="main">
+      <div py:replace="header()"/>
+      <replace py:replace="oauthLogin()"/>
+      <div py:replace="footer(showLoginStatus=False)"/>
+    </div>
+  </body>
+</html>

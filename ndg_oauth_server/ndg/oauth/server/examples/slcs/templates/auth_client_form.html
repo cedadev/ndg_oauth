@@ -1,0 +1,68 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:py="http://genshi.edgewall.org/">
+  <div py:def="oauthAuthClient()" id="oauthAuthClient">
+    <form action="$c.submit_url" method="post">
+      <table cellspacing="0" border="0" cellpadding="5" style="align: left">
+        <tr align="left">
+          <td colspan="2">
+            <p>If you press the OK button you are granting permission to client "${c.client_name}" to use your credentials.
+            Press the cancel button if you do not want to do that.</p>
+            <p>Client details:</p>
+          </td>
+        </tr>
+        <tr>
+          <td align="left">
+            Client ID
+          </td>
+          <td align="left">
+            "${c.client_id}"
+          </td>
+        </tr>
+        <tr py:if="c.scope">
+          <td>
+            Scope in which credentials are to be used:
+          </td>
+          <td>
+            ${c.scope}
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" align="right">
+            <input type="submit" name="submit" value="OK"/>
+            <input type="submit" name="cancel" value="Cancel"/>
+            <span>
+              <a href="javascript:;" title="Toggle help" onclick="toggleDiv(1,'aboutOpenID','shown','hidden','div'); return false;">
+              <img src="$c.helpIcon" alt="Toggle help" class="helpicon"/></a>
+            </span>
+          </td>
+        </tr>
+      </table>
+      <div id="aboutOpenID" class="hidden">
+        <div class="helptxt">
+          <p>You are being asked to log in to an OAuth server. OAuth is a protocol that allows you
+          to grant access to services to act on your behalf while only logging in to the OAuth
+          server. You will be asked to confirm that you wish to delegate authority to the service.
+          </p>
+          <p>
+          This server uses OAuth version 2.0. The latest specification at the time of writing is
+          <a href="http://tools.ietf.org/html/draft-ietf-oauth-v2-24">The OAuth 2.0 Authorization Protocol</a>
+          </p>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <xi:include href="base.html" />
+  <head>
+    <replace py:replace="pagehead()"/>
+  </head>
+  <body>
+    <div id="main">
+      <div py:replace="header()"/>
+      <replace py:replace="oauthAuthClient()"/>
+      <div py:replace="footer(showLoginStatus=False)"/>
+    </div>
+  </body>
+</html>
