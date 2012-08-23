@@ -22,6 +22,15 @@ from ndg.oauth.client.lib.render.renderer_interface import RendererInterface
 
 log = logging.getLogger(__name__)
 
+
+class Oauth2ClientMiddlewareSessionError(Exception):
+    """Missing beaker session key"""
+    
+    
+class Oauth2ClientMiddlewareConfigOptError(Exception):
+    """Error with Config option"""
+    
+    
 class Oauth2ClientMiddleware(object):
     """
     OAuth 2.0 client middleware that sets an access token in the WSGI environ.
@@ -46,6 +55,14 @@ class Oauth2ClientMiddleware(object):
     SESSION_KEY_OPTION = 'session_key'
     SESSION_CALL_CONTEXT_KEY = 'oauth2_call_context'
     TOKEN_KEY_OPTION = 'oauth2_token_key'
+    CLIENT_CERT_OPTION = 'client_cert'
+    CLIENT_KEY_OPTION = 'client_key'
+    CA_CERT_FILE_OPTION = 'ca_cert_file'
+    CA_DIR_OPTION = 'ca_dir'
+    CLIENT_ID_OPTION = 'client_id'
+    AUTHORIZATION_ENDPOINT_OPTION = 'authorization_endpoint'
+    ACCESS_TOKEN_ENDPOINT_OPTION = 'access_token_endpoint'
+    
     propertyDefaults = {
         ACCESS_TOKEN_TYPE_OPTION: 'slcs',
         AUTHENTICATION_COMPLETE_OPTION: '',
@@ -126,16 +143,16 @@ class Oauth2ClientMiddleware(object):
         log.debug("Request host_url: %s", req.host_url)
         log.debug("Request application_url: %s", req.application_url)
         is_redirect_back = False
+        
         original_environ = {'PATH_INFO': environ['PATH_INFO'],
                             'QUERY_STRING': environ['QUERY_STRING'],
                             'SCRIPT_NAME': environ['SCRIPT_NAME'],
                             'url': req.url}
-        #log.debug("Request environ: %s", environ)
 
         # Get session.
         session = environ.get(self.session_env_key)
         if session is None:
-            raise Exception(
+            raise Oauth2ClientMiddlewareSessionError(
                 'Oauth2ClientMiddleware.__call__: No beaker session key '
                 '"%s" found in environ' % self.session_env_key)
 
@@ -147,10 +164,13 @@ class Oauth2ClientMiddleware(object):
         if (self.authentication_trigger ==
             self.__class__.AUTHENTICATION_TRIGGER_ALWAYS):
             authenticate_before_delegating = True
+            
         elif (self.authentication_trigger ==
               self.__class__.AUTHENTICATION_TRIGGER_URL):
+            
             if is_authentication_url:
                 authenticate_before_delegating = True
+                
         elif (self.authentication_trigger ==
               self.__class__.AUTHENTICATION_TRIGGER_UNAUTHORIZED):
             authenticate_on_unauthorized = True
@@ -181,6 +201,7 @@ class Oauth2ClientMiddleware(object):
             log.debug("Setting token in environ[%s]=%s", self.token_env_key,
                       token)
             environ[self.token_env_key] = token
+            
         elif authenticate_on_unauthorized and redirect_url:
             def local_start_response(status, response_headers, exc_info=None):
                 status_code = status.split(' ')[0]
@@ -200,18 +221,13 @@ class Oauth2ClientMiddleware(object):
             c = {'baseURL': req.application_url}
             response = self.renderer.render(self.authentication_complete,
                             self._renderingConfiguration.merged_parameters(c))
+            
             start_response(self._get_http_status_string(httplib.OK),
                [('Content-type', 'text/html'),
                 ('Content-length', str(len(response)))
                 ])
+            
             return [response]
-#            response = "OAuth authentication complete"
-#            start_response(("%d %s" %
-#                                (httplib.OK, httplib.responses[httplib.OK])),
-#                           [('Content-type', 'text/plain'),
-#                            ('Content-length', str(len(response)))
-#                            ])
-#            return [response]
 
         # Ensure that the URL is that prior to authentication redirection.
         if is_redirect_back:
@@ -220,9 +236,6 @@ class Oauth2ClientMiddleware(object):
             start_response(self._get_http_status_string(httplib.FOUND),
                            [('Location', original_url)])
             return []
-#            environ['PATH_INFO'] = original_environ['PATH_INFO']
-#            environ['QUERY_STRING'] = original_environ['QUERY_STRING']
-#            environ['SCRIPT_NAME'] = original_environ['SCRIPT_NAME']
 
         app_iter = self._app(environ, local_start_response)
         return app_iter
@@ -242,34 +255,54 @@ class Oauth2ClientMiddleware(object):
                                                 cls.ACCESS_TOKEN_TYPE_OPTION)
         self.authentication_complete = cls._get_config_option(prefix,
                                 local_conf, cls.AUTHENTICATION_COMPLETE_OPTION)
+        
         self.authentication_trigger = cls._get_config_option(
                 prefix, local_conf, cls.AUTHENTICATION_TRIGGER_OPTION).lower()
+                
         if self.authentication_trigger not in cls.AUTHENTICATION_TRIGGER_OPTIONS:
-            raise Exception("Illegal value for %s option; expected one of %s" %
-                            self.authentication_trigger_str,
-                            cls.AUTHENTICATION_TRIGGER_OPTIONS)
+            raise Oauth2ClientMiddlewareConfigOptError(
+                        "Illegal value for %s option; expected one of %s" %
+                        self.authentication_trigger_str,
+                        cls.AUTHENTICATION_TRIGGER_OPTIONS)
+            
         self.authentication_url = cls._get_config_option(
                 prefix, local_conf, cls.AUTHENTICATION_URL_OPTION).strip('/')
-        self.renderer_class = cls._get_config_option(prefix, local_conf, cls.RENDERER_CLASS_OPTION)
-        self.scope = cls._get_config_option(prefix, local_conf, cls.SCOPE_OPTION)
-        self.session_env_key = cls._get_config_option(prefix, local_conf, cls.SESSION_KEY_OPTION)
-        self.token_env_key = self._get_config_option(prefix, local_conf, cls.TOKEN_KEY_OPTION)
+                
+        self.renderer_class = cls._get_config_option(prefix, local_conf, 
+                                                     cls.RENDERER_CLASS_OPTION)
+        self.scope = cls._get_config_option(prefix, local_conf, 
+                                            cls.SCOPE_OPTION)
+        self.session_env_key = cls._get_config_option(prefix, local_conf, 
+                                                      cls.SESSION_KEY_OPTION)
+        self.token_env_key = self._get_config_option(prefix, local_conf, 
+                                                     cls.TOKEN_KEY_OPTION)
 
         # SSL configuration
-        client_cert = cls._get_config_option(prefix, local_conf, 'client_cert')
-        client_key = cls._get_config_option(prefix, local_conf, 'client_key')
-        ca_cert_file = cls._get_config_option(prefix, local_conf, 'ca_cert_file')
-        ca_dir = cls._get_config_option(prefix, local_conf, 'ca_dir')
+        client_cert = cls._get_config_option(prefix, local_conf, 
+                                             cls.CLIENT_CERT_OPTION)
+        client_key = cls._get_config_option(prefix, local_conf, 
+                                            cls.CLIENT_KEY_OPTION)
+        ca_cert_file = cls._get_config_option(prefix, local_conf, 
+                                              cls.CA_CERT_FILE_OPTION)
+        ca_dir = cls._get_config_option(prefix, local_conf, cls.CA_DIR_OPTION)
         self.ssl_config = SSlContextConfig(client_key, client_cert,
                                            ca_cert_file, ca_dir, True)
 
         # OAuth client configuration
-        certificate_request_parameter = cls._get_config_option(prefix, local_conf, cls.CERTIFICATE_REQUEST_PARAMETER_OPTION)
-        client_id = cls._get_config_option(prefix, local_conf, 'client_id')
-        authorization_endpoint = cls._get_config_option(prefix, local_conf, 'authorization_endpoint')
-        access_token_endpoint = cls._get_config_option(prefix, local_conf, 'access_token_endpoint')
-        base_url_path = cls._get_config_option(prefix, local_conf, cls.BASE_URL_PATH_OPTION)
+        certificate_request_parameter = cls._get_config_option(prefix, 
+                                    local_conf, 
+                                    cls.CERTIFICATE_REQUEST_PARAMETER_OPTION)
+        client_id = cls._get_config_option(prefix, local_conf, 
+                                           cls.CLIENT_ID_OPTION)
+        authorization_endpoint = cls._get_config_option(prefix, local_conf, 
+                                            cls.AUTHORIZATION_ENDPOINT_OPTION)
+        access_token_endpoint = cls._get_config_option(prefix, local_conf, 
+                                            cls.ACCESS_TOKEN_ENDPOINT_OPTION)
+        base_url_path = cls._get_config_option(prefix, local_conf, 
+                                            cls.BASE_URL_PATH_OPTION)
+        
         redirect_uri = cls.REDIRECT_URI
+        
         self.client_config = Oauth2ClientConfig(
             client_id, authorization_endpoint, access_token_endpoint,
             base_url_path, redirect_uri,
@@ -277,7 +310,8 @@ class Oauth2ClientMiddleware(object):
 
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
-        value = local_conf.get(prefix + key, cls.propertyDefaults.get(key, None))
+        value = local_conf.get(prefix + key, 
+                               cls.propertyDefaults.get(key, None))
         log.debug("Oauth2ClientMiddleware configuration %s=%s", key, value)
         return value
 
@@ -339,7 +373,8 @@ class Oauth2ClientMiddleware(object):
 
             return result
         else:
-            raise Exception("No OAuth client created for session.")
+            raise Oauth2ClientMiddlewareSessionError("No OAuth client created "
+                                                     "for session.")
 
 
 class TokenRetriever(object):
