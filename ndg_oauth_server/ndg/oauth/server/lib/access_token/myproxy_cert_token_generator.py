@@ -64,17 +64,21 @@ class MyProxyCertTokenGenerator(AccessTokenInterface):
         cert_req = base64.b64decode(cert_req_enc)
 
         # Get the user identification as set by an authentication filter.
-        myproxy_id = grant.additional_data.get(self.user_identifier_grant_data_key)
+        myproxy_id = grant.additional_data.get(
+                                            self.user_identifier_grant_data_key)
         if not myproxy_id:
             log.error('User identifier not stored with grant')
             return None
 
         # Attempt to obtain a certificate from MyProxy.
         try:
-            creds = myproxyclient.logon(myproxy_id, self.myproxy_global_password, certReq=cert_req)
+            creds = myproxyclient.logon(myproxy_id, 
+                                        self.myproxy_global_password, 
+                                        certReq=cert_req)
         except Exception, exc:
             log.error('MyProxy logon failed: %s', exc.__str__())
             return None
 
         token_id = creds[0]
-        return AccessToken(token_id, token_request, grant, self.token_type, self.lifetime)
+        return AccessToken(token_id, token_request, grant, self.token_type, 
+                           self.lifetime)
