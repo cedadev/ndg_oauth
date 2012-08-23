@@ -288,7 +288,9 @@ class Oauth2ServerMiddleware(object):
         @return: WSGI response
         """
         log.debug("access_token called")
-        (response, error_status, error_description) = self._authorizationServer.access_token(req)
+        (response, 
+         error_status, 
+         error_description) = self._authorizationServer.access_token(req)
         if response is None:
             response = ''
         headers = [

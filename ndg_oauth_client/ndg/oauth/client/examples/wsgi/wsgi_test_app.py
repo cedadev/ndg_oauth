@@ -33,7 +33,7 @@ class WsgiTestApp(object):
             return "WSGI Test Application: invalid URI"
 
     def default(self, environ, start_response):
-        response = "<h2>WSGI Test Application</h2>"
+        response = "<h2>ndg_oauth WSGI Test Application</h2>"
         start_response('200 OK', 
                        [('Content-type', 'text/html'),
                         ('Content-length', str(len(response)))])
@@ -41,7 +41,8 @@ class WsgiTestApp(object):
 
     def cert(self, environ, start_response):
         cert = environ.get(self.TOKEN_ENV_KEYNAME)
-        response = ["<h2>WSGI Test Application - Get Certificate</h2>"]
+        response = ["<h2>ndg_oauth WSGI Test Application - Get Certificate"
+                    "</h2>"]
         if cert:
             for c in cert:
                 response.append("<pre>%s</pre>" % c)
@@ -50,7 +51,8 @@ class WsgiTestApp(object):
 
         start_response('200 OK', 
                        [('Content-type', 'text/html'),
-                        ('Content-length', str(sum([len(r) for r in response])))])
+                        ('Content-length', 
+                         str(sum([len(r) for r in response])))])
         return response
 
     @classmethod
