@@ -362,7 +362,7 @@ class Oauth2ClientMiddleware(object):
             # Return callback result.
             callback = self._token_retriever_class(client)
             result = client.call_with_access_token_redirected_back(req,
-                                                                   callback,
+                                                                callback,
                                                                 self.ssl_config)
             # Save client state, which includes the token.
             session.save()
