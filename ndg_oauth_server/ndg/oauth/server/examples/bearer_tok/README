@@ -1,0 +1,7 @@
+Example OAuth 2.0 bearer token authorisation and resource server app
+
+$ python bearer_tok_server_app_serve.py
+
+Run equivalent client app under ndg.oauth.client.examples.bearer_tok in order to
+test.  Open a browser at http://localhost:5002/token to test.  Clear out cookies
+to reset between test runs.

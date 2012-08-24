@@ -1,0 +1,7 @@
+Example OAuth 2.0 X.509 cert-based token authorisation and resource server app
+
+$ python slcs_server_app_serve.py
+
+Run equivalent client app under ndg.oauth.client.examples.slcs in order to
+test.  Open a browser at http://localhost:5002/token to test.  Clear out cookies
+to reset between test runs.
