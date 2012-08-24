@@ -60,6 +60,7 @@ setup(
     name =                      'ndg_oauth_client',
     version =                   '0.3.0',
     description =               'OAuth 2.0 client',
+    long_description =          _long_description,
     author =                    'R. B. Wilkinson',
     maintainer =         	    'Philip Kershaw',
     maintainer_email =          'Philip.Kershaw@stfc.ac.uk',
