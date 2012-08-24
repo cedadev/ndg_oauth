@@ -48,8 +48,7 @@ The examples should be used in conjunction with the ndg.oauth client package.
 setup(
     name =                      'ndg_oauth_server',
     version =                   '0.3.0',
-    description =               'OAuth 2.0 server providing MyProxy '
-                                'certificates as access tokens',
+    description =               'OAuth 2.0 server',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
     maintainer =         	    'Philip Kershaw',
