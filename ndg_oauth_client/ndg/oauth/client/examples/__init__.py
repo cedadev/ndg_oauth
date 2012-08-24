@@ -45,7 +45,11 @@ class WsgiTestApp(object):
         response = ["<h2>ndg_oauth WSGI Test Application - Get Token"
                     "</h2>"]
         if tok:
-            response.append("<pre>%s</pre>" % tok)
+            if isinstance(tok, basestring):
+                response.append("<pre>%s</pre>" % tok)
+            else:
+                for i in tok:
+                    response.append("<pre>%s</pre>" % i)
         else:
             response.append("<p>token not found</p>")
 

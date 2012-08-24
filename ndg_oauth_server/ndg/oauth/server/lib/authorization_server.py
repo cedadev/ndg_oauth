@@ -1,4 +1,7 @@
-"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""OAuth 2.0 WSGI server middleware implements support for basic bearer 
+tokens and also X.509 certificates as access tokens
+
+OAuth 2.0 Authorisation Server
 """
 __author__ = "R B Wilkinson"
 __date__ = "12/12/11"
@@ -21,6 +24,7 @@ from ndg.oauth.server.lib.register.client import ClientRegister
 from ndg.oauth.server.lib.register.authorization_grant import AuthorizationGrantRegister
 
 log = logging.getLogger(__name__)
+
 
 class AuthorizationServer(object):
     """
@@ -107,17 +111,24 @@ class AuthorizationServer(object):
             required_parameters = ['response_type', 'client_id']
             for param in required_parameters:
                 if param not in params:
-                    log.error("Missing request parameter %s from params: %s" % (param, params))
-                    raise OauthException('invalid_request', ("Missing request parameter: %s" % param))
+                    log.error("Missing request parameter %s from params: %s",
+                              param, params)
+                    raise OauthException('invalid_request', 
+                                         "Missing request parameter: %s" % param)
 
             if not client_authorized:
-                raise OauthException('access_denied', 'User has declined authorization')
+                raise OauthException('access_denied', 
+                                     'User has declined authorization')
 
             response_type = params.get('response_type', None)
             if response_type != 'code':
-                raise OauthException('unsupported_response_type', ("Response type %s not supported" % response_type))
+                raise OauthException('unsupported_response_type', 
+                                     "Response type %s not supported" % 
+                                     response_type)
 
-            client_error = self.client_register.is_valid_client(auth_request.client_id, auth_request.redirect_uri)
+            client_error = self.client_register.is_valid_client(
+                                                        auth_request.client_id, 
+                                                        auth_request.redirect_uri)
             if client_error:
                 log.error("Invalid client: %s", client_error)
                 return (None, httplib.BAD_REQUEST, client_error)
@@ -126,24 +137,38 @@ class AuthorizationServer(object):
             # than one registered.
             client = self.client_register.register[auth_request.client_id]
             if len(client.redirect_uris) != 1 and not auth_request.redirect_uri:
-                log.error("An authorization request has been made without a return URI")
-                return (None, httplib.BAD_REQUEST, 'An authorization request has been made without a return URI.')
+                log.error("An authorization request has been made without a "
+                          "return URI")
+                return (None, 
+                        httplib.BAD_REQUEST, 
+                        ('An authorization request has been made without a '
+                        'return URI.'))
 
             # Preconditions satisfied - generate grant.
-            (grant, code) = self.authorizer.generate_authorization_grant(auth_request, request)
+            (grant, code) = self.authorizer.generate_authorization_grant(
+                                                                auth_request, 
+                                                                request)
             auth_response = AuthorizeResponse(code, auth_request.state)
 
             if not self.authorization_grant_register.add_grant(grant):
                 log.error('Registering grant failed')
-                raise OauthException('server_error', 'Authorization grant could not be created')
+                raise OauthException('server_error', 
+                                     'Authorization grant could not be created')
         except OauthException, exc:
-            log.error("Redirecting back after error: %s - %s", exc.error, exc.error_description)
-            return self._redirect_after_authorize(auth_request, None, exc.error, exc.error_description)
+            log.error("Redirecting back after error: %s - %s", 
+                      exc.error, exc.error_description)
+            
+            return self._redirect_after_authorize(auth_request, None, exc.error,
+                                                  exc.error_description)
 
         log.debug("Redirecting back after successful authorization.")
         return self._redirect_after_authorize(auth_request, auth_response)
 
-    def _redirect_after_authorize(self, auth_request, auth_response=None, error=None, error_description=None):
+    def _redirect_after_authorize(self, 
+                                  auth_request, 
+                                  auth_response=None, 
+                                  error=None, 
+                                  error_description=None):
         """Redirects to the redirect URI after the authorization process as
         completed.
 
@@ -166,17 +191,24 @@ class AuthorizationServer(object):
 
         # Get the redirect URI.
         client = self.client_register.register[auth_request.client_id]
-        redirect_uri = (auth_request.redirect_uri if auth_request.redirect_uri else client.redirect_uris[0])
+        redirect_uri = (
+            auth_request.redirect_uri if auth_request.redirect_uri else \
+                client.redirect_uris[0]
+        )
         if not redirect_uri:
             return(None, httplib.BAD_REQUEST,
                    'An authorization request has been made without a return URI.')
 
         # Redirect back to client with authorization code or error.
         if error:
-            url_parameters = [('error', error), ('error_description', error_description)]
+            url_parameters = [('error', error), 
+                              ('error_description', error_description)]
         else:
             url_parameters = [('code', auth_response.code)]
-        full_redirect_uri = self._make_combined_url(redirect_uri, url_parameters, auth_request.state)
+            
+        full_redirect_uri = self._make_combined_url(redirect_uri, 
+                                                    url_parameters, 
+                                                    auth_request.state)
         log.debug("Redirecting to URI: %s", full_redirect_uri)
         return(full_redirect_uri, None, None)
 
@@ -202,7 +234,8 @@ class AuthorizationServer(object):
         sep_with_ampersand = ('?' in url)
         if parameters:
             query_string = urllib.urlencode(parameters)
-            url_parts.extend([('&' if (sep_with_ampersand) else '?'), query_string])
+            url_parts.extend([('&' if (sep_with_ampersand) else '?'), 
+                              query_string])
             sep_with_ampersand = True
 
         if state:
@@ -256,7 +289,8 @@ class AuthorizationServer(object):
         log.debug("Starting access token request")
 
         try:
-            # Parameters should only be taken from the body, not the URL query string.
+            # Parameters should only be taken from the body, not the URL query 
+            # string.
             params = request.POST
             self.check_request(request, params, post_only=True)
 
@@ -271,11 +305,15 @@ class AuthorizationServer(object):
             required_parameters = ['grant_type', 'code']
             for param in required_parameters:
                 if param not in params:
-                    log.error("Missing request parameter %s from inputs: %s" % (param, params))
-                    raise OauthException('invalid_request', ("Missing request parameter: %s" % param))
+                    log.error("Missing request parameter %s from inputs: %s",
+                              param, params)
+                    raise OauthException('invalid_request', 
+                                    ("Missing request parameter: %s" % param))
 
         except OauthException, exc:
-            return (self._error_access_token_response(exc.error, exc.error_description), None, None)
+            return (self._error_access_token_response(exc.error, 
+                                                      exc.error_description), 
+                    None, None)
 
         token_request = AccessTokenRequest(params.get('grant_type', None),
                                            params.get('code', None),
@@ -287,12 +325,15 @@ class AuthorizationServer(object):
                 self.access_token_generator, self.authorization_grant_register,
                 request)
         except OauthException, exc:
-            return (self._error_access_token_response(exc.error, exc.error_description), None, None)
+            return (self._error_access_token_response(exc.error, 
+                                                      exc.error_description), 
+                    None, None)
 
         if response:
             return(self._access_token_response(response), None, None)
         else:
-            return(None, httplib.INTERNAL_SERVER_ERROR, 'Access token generation failed.')
+            return(None, httplib.INTERNAL_SERVER_ERROR, 
+                   'Access token generation failed.')
 
     def _access_token_response(self, resp):
         """Constructs the JSON response to an access token request.
@@ -348,10 +389,14 @@ class AuthorizationServer(object):
 
         """
         if request.scheme != 'https':
-            raise OauthException('invalid_request', 'Transport layer security must be used for this request.')
+            raise OauthException('invalid_request', 
+                                 'Transport layer security must be used for '
+                                 'this request.')
 
         if post_only and (request.method != 'POST'):
-            raise OauthException('invalid_request', 'HTTP POST method must be used for this request.')
+            raise OauthException('invalid_request', 
+                                 'HTTP POST method must be used for this '
+                                 'request.')
 
         # Check for duplicate parameters.
         param_counts = {}
@@ -360,7 +405,8 @@ class AuthorizationServer(object):
             param_counts[key] = count + 1
         for key, count in param_counts.iteritems():
             if count > 1:
-                raise OauthException('invalid_request', ('Parameter "%s" is repeated.' % key))
+                raise OauthException('invalid_request', 
+                                     'Parameter "%s" is repeated.' % key)
         return
 
     def check_token(self, request, scope=None):
@@ -489,4 +535,5 @@ class AuthorizationServer(object):
                                                                     client_id)
             if error_description:
                 return ('unauthorized_client', error_description)
+            
         return (None, None)

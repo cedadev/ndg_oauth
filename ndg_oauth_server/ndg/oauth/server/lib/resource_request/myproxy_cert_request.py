@@ -13,6 +13,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
 class MyproxyCertRequest(object):
     def __init__(self, **kw):
         """

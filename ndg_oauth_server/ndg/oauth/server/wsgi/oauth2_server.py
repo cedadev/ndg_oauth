@@ -1,4 +1,7 @@
-"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""OAuth 2.0 WSGI server middleware implements Authorisation and Resource 
+server functionality.  It includes support for basic bearer tokens and also 
+a customisation - X.509 certificates as access tokens - for use with an SLCS
+(Short-lived Credential Service)
 """
 __author__ = "R B Wilkinson"
 __date__ = "12/12/11"
@@ -31,19 +34,23 @@ from ndg.oauth.server.lib.resource_request.myproxy_cert_request import \
 
 log = logging.getLogger(__name__)
 
+
 class Oauth2ServerMiddleware(object):
     """
-    WSGI OAuth 2.0 server.
+    WSGI OAuth 2.0 server implements Authorisation and Resource server functions
+    
     Requires:
     o Beaker session
     o An authentication provider that sets the user's ID in the environ, e.g.,
       repose.who
-    o MyProxyClientMiddleware
+    o MyProxyClientMiddleware (ONLY required for X.509 cert based token
+      generation used with SLCS config)
     o Middleware to set user's decisions for authorization of OAuth clients in
       the environ, e.g., ndg.oauth.server.wsgi.authorization_filter.
     """
     PARAM_PREFIX = 'oauth2server.'
     CERT_DN_ENVIRON_KEY = 'SSL_CLIENT_S_DN'
+    
     # Configuration options
     ACCESS_TOKEN_LIFETIME_OPTION = 'access_token_lifetime'
     ACCESS_TOKEN_TYPE_OPTION = 'access_token_type'
@@ -62,7 +69,7 @@ class Oauth2ServerMiddleware(object):
     # Configuration option defaults
     propertyDefaults = {
         ACCESS_TOKEN_LIFETIME_OPTION: 86400,
-        ACCESS_TOKEN_TYPE_OPTION: 'slcs',
+        ACCESS_TOKEN_TYPE_OPTION: 'bearer',
         AUTHORIZATION_GRANT_LIFETIME_OPTION: 600,
         BASE_URL_PATH_OPTION: '',
         CERTIFICATE_REQUEST_PARAMETER_OPTION: 'certificate_request',
@@ -104,19 +111,26 @@ class Oauth2ServerMiddleware(object):
 
         if self.access_token_type == 'bearer':
             # Simple bearer token configuration.
-            access_token_generator = BearerTokenGenerator(self.access_token_lifetime_seconds, self.access_token_type)
+            access_token_generator = BearerTokenGenerator(
+                                        self.access_token_lifetime_seconds, 
+                                        self.access_token_type)
+            
         elif self.access_token_type == 'slcs':
-            # Configure authorization server to use MyProxy certificates as access tokens.
+            # Configure authorization server to use MyProxy certificates as 
+            # access tokens.
             access_token_generator = MyProxyCertTokenGenerator(
-                self.access_token_lifetime_seconds, self.access_token_type,
+                self.access_token_lifetime_seconds, 
+                self.access_token_type,
                 certificate_request_parameter=self.certificate_request_parameter,
                 myproxy_client_env_key=self.myproxy_client_env_key,
                 myproxy_global_password=self.myproxy_global_password,
-                user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
+                user_identifier_grant_data_key=\
+                    self.USER_IDENTIFIER_GRANT_DATA_KEY)
         else:
             raise ValueError("Invalid configuration value %s for %s" %
                              (self.access_token_type,
                               self.ACCESS_TOKEN_TYPE_OPTION))
+            
         # Store user identifier with grant - this isn't needed for the OAuth
         # protocol but is needed to return certificates using MyProxy.
         authorizer = AuthorizerStoringIdentifier(
@@ -128,8 +142,10 @@ class Oauth2ServerMiddleware(object):
         # that development/testing can be performed without running on Apache.
         if self.client_authentication_method == 'certificate':
             client_authenticator = CertificateClientAuthenticator()
+            
         elif self.client_authentication_method == 'none':
             client_authenticator = NoopClientAuthenticator()
+            
         else:
             raise ValueError("Invalid configuration value %s for %s" %
                              (self.client_authentication_method,
@@ -204,7 +220,8 @@ class Oauth2ServerMiddleware(object):
         # User authentication is required before authorization can proceed.
         user = req.environ.get(self.user_identifier_env_key)
         if not user:
-            log.debug("%s not in environ - authentication required" % self.user_identifier_env_key)
+            log.debug("%s not in environ - authentication required",
+                      self.user_identifier_env_key)
             start_response(self._get_http_status_string(httplib.UNAUTHORIZED), [])
             return []
 
@@ -218,7 +235,10 @@ class Oauth2ServerMiddleware(object):
             log.debug("User has declined authorization for client.")
 
         # Request authorization grant.
-        (redirect_uri, error, error_description) = self._authorizationServer.authorize(req, client_authorized)
+        (redirect_uri, 
+         error, 
+         error_description) = self._authorizationServer.authorize(req, 
+                                                            client_authorized)
         if error:
             self._error_response(error, error_description, start_response)
         else:
@@ -246,16 +266,23 @@ class Oauth2ServerMiddleware(object):
         @type req: webob.Request
         @param req: HTTP request object
         """
-        client_authorizations = req.environ.get(self.client_authorizations_env_key)
+        client_authorizations = req.environ.get(
+                                            self.client_authorizations_env_key)
         client_id = req.params.get('client_id')
         scope = req.params.get('scope')
         if not client_authorizations:
             client_authorized = None
-            log.debug("Client authorization register not found in environ (key %s).", self.client_authorizations_env_key)
+            log.debug("Client authorization register not found in environ "
+                      "(key %s).", self.client_authorizations_env_key)
         else:
-            client_authorized = client_authorizations.is_client_authorized_by_user(user, client_id, scope)
+            client_authorized = \
+                client_authorizations.is_client_authorized_by_user(user, 
+                                                                   client_id, 
+                                                                   scope)
         if client_authorized is None:
-            log.debug("Client not authorized by user (client_id: %s  scope: %s  user: %s).", client_id, scope, user)
+            log.debug("Client not authorized by user (client_id: %s  scope: %s"
+                      "  user: %s).", client_id, scope, user)
+            
             url_params = {'client_id': client_id,
                           'scope': scope,
                           'user': user,
@@ -263,6 +290,7 @@ class Oauth2ServerMiddleware(object):
             url = ("%s?%s" % (self._make_client_authorization_url(req),
                               urllib.urlencode(url_params)))
             return (None, url)
+        
         return (client_authorized, None)
 
     def _make_client_authorization_url(self, req):
@@ -299,7 +327,8 @@ class Oauth2ServerMiddleware(object):
             ('Content-length', str(len(response))),
             ('Pragma', 'no-store')
         ]
-        status_str = self._get_http_status_string(error_status if error_status else httplib.OK)
+        status_str = self._get_http_status_string(
+                                error_status if error_status else httplib.OK)
         if error_status:
             log.debug("Error obtaining access token: %s - %s", status_str,
                       error_description)
@@ -320,7 +349,7 @@ class Oauth2ServerMiddleware(object):
         @rtype: iterable
         @return: WSGI response
         """
-        (response, error_status, error_description) = self._authorizationServer.check_token(req)
+        response, error_status = self._authorizationServer.check_token(req)[0:2]
         if response is None:
             response = ''
         headers = [
@@ -329,7 +358,8 @@ class Oauth2ServerMiddleware(object):
             ('Content-length', str(len(response))),
             ('Pragma', 'no-store')
         ]
-        status_str = self._get_http_status_string(error_status if error_status else httplib.OK)
+        status_str = self._get_http_status_string(
+                                error_status if error_status else httplib.OK)
 
         start_response(status_str, headers)
         return [response]

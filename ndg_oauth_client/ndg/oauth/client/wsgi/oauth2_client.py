@@ -64,7 +64,7 @@ class Oauth2ClientMiddleware(object):
     ACCESS_TOKEN_ENDPOINT_OPTION = 'access_token_endpoint'
     
     propertyDefaults = {
-        ACCESS_TOKEN_TYPE_OPTION: 'slcs',
+        ACCESS_TOKEN_TYPE_OPTION: 'bearer',
         AUTHENTICATION_COMPLETE_OPTION: '',
         AUTHENTICATION_TRIGGER_OPTION: AUTHENTICATION_TRIGGER_ALWAYS,
         AUTHENTICATION_URL_OPTION: 'oauth_authenticate',
@@ -110,11 +110,11 @@ class Oauth2ClientMiddleware(object):
         self._app = app
         self._set_configuration(prefix, local_conf)
         if self.access_token_type == 'slcs':
-            log.debug("Setting client as Oauth2MyProxyClient")
+            log.debug("Setting client as Oauth2MyProxyClient (SLCS)")
             self._oauth_client_class = Oauth2MyProxyClient
             self._token_retriever_class = MyProxyTokenRetriever
         else:
-            log.debug("Setting client as Oauth2Client")
+            log.debug("Setting client as Oauth2Client (Bearer token)")
             self._oauth_client_class = Oauth2Client
             self._token_retriever_class = TokenRetriever
 
