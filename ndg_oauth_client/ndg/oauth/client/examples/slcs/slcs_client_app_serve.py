@@ -10,4 +10,4 @@ __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 from paste.script.serve import ServeCommand
 
-ServeCommand("serve").run(["./slcs_oauth_client_app.ini"])
+ServeCommand("serve").run(["./slcs_client_app.ini"])
