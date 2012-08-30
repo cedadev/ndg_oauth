@@ -47,7 +47,7 @@ The examples should be used in conjunction with the ndg.oauth client package.
 
 setup(
     name =                      'ndg_oauth_server',
-    version =                   '0.3.0',
+    version =                   '0.3.1',
     description =               'OAuth 2.0 server',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
@@ -64,6 +64,32 @@ setup(
     ],
     extras_require = {'slcs_support': 'MyProxyClient'},
     packages = find_packages(),
+    package_data =      {
+        'ndg.oauth.server.examples': [
+            'README'
+        ],
+        'ndg.oauth.server.examples.bearer_tok': [
+            'README', 'passwd', '*.ini'
+        ],
+        'ndg.oauth.server.examples.bearer_tok.templates': [
+            '*.html'
+        ],
+        'ndg.oauth.server.examples.bearer_tok.static.layout': [
+            '*.css', '*.png'
+        ],
+        'ndg.oauth.server.examples.slcs': [
+            'README', 'passwd', '*.ini'
+        ],
+        'ndg.oauth.server.examples.slcs.templates': [
+            '*.html'
+        ],
+        'ndg.oauth.server.examples.slcs.static.layout': [
+            '*.css', '*.png'
+        ],
+        'ndg.oauth.server.examples.shared_config': [
+            'README', 'pki/*.pem', 'pki/ca/*.0'
+        ]
+    },
     zip_safe = False,
     classifiers = [
         'Development Status :: 3 - Alpha',
