@@ -66,7 +66,7 @@ setup(
     packages = find_packages(),
     package_data =      {
         'ndg.oauth.server.templates': [
-            'public/*.html', 'public/js/*.js', 'public/layout/*.css',
+            '*.html', 'public/js/*.js', 'public/layout/*.css',
             'public/layout/*.png', 'public/layout/icons/*.png'
         ],
         'ndg.oauth.server.examples': [
