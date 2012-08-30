@@ -58,7 +58,7 @@ The examples should be used in conjunction with the ndg.oauth server package.
 
 setup(
     name =                      'ndg_oauth_client',
-    version =                   '0.3.0',
+    version =                   '0.3.1',
     description =               'OAuth 2.0 client',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
@@ -75,6 +75,24 @@ setup(
         "pyasn1",
     ],
     packages =find_packages(),
+    package_data =      {
+        'ndg.oauth.client.templates': [
+            '*.html', 'public/layout/*.css', 'public/layout/*.png',
+            'public/layout/icons/*.png'
+        ],
+        'ndg.oauth.client.examples': [
+            'README'
+        ],
+        'ndg.oauth.client.examples.bearer_tok': [
+            'README', '*.ini'
+        ],
+        'ndg.oauth.client.examples.slcs': [
+            'README', '*.ini'
+        ],
+        'ndg.oauth.client.examples.shared_config': [
+            'README', 'pki/*.crt', 'pki/*.key', 'pki/ca/*.0'
+        ]
+    },
     zip_safe =False,
     classifiers = [
         'Development Status :: 3 - Alpha',

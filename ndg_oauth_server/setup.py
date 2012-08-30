@@ -69,22 +69,12 @@ setup(
             'README'
         ],
         'ndg.oauth.server.examples.bearer_tok': [
-            'README', 'passwd', '*.ini'
-        ],
-        'ndg.oauth.server.examples.bearer_tok.templates': [
-            '*.html'
-        ],
-        'ndg.oauth.server.examples.bearer_tok.static.layout': [
-            '*.css', '*.png'
+            'README', 'passwd', '*.ini', 'templates/*.html', 
+            'static/layout/*.css', 'static/layout/*.png'
         ],
         'ndg.oauth.server.examples.slcs': [
-            'README', 'passwd', '*.ini'
-        ],
-        'ndg.oauth.server.examples.slcs.templates': [
-            '*.html'
-        ],
-        'ndg.oauth.server.examples.slcs.static.layout': [
-            '*.css', '*.png'
+            'README', 'passwd', '*.ini', 'templates/*.html', 
+            'static/layout/*.css', 'static/layout/*.png'
         ],
         'ndg.oauth.server.examples.shared_config': [
             'README', 'pki/*.pem', 'pki/ca/*.0'
