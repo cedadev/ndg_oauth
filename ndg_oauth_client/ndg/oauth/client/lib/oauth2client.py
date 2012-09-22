@@ -78,8 +78,9 @@ class Oauth2ClientConfig(object):
         @rtype: bool
         @return: True if URL is the redirect URI otherwise False
         """
-        redirect_uri = self._construct_url([application_url, self.base_url_path, self.redirect_uri])
-        (path_url, sep, query) = url.partition('?')
+        redirect_uri = self._construct_url([application_url, self.base_url_path,
+                                            self.redirect_uri])
+        path_url = url.partition('?')[0]
         return redirect_uri == path_url
 
     @staticmethod
@@ -225,27 +226,54 @@ class Oauth2Client(object):
             'grant_type': 'authorization_code',
             'code': code,
             'redirect_uri': self.client_config.make_redirect_uri(application_url)}
+        
+        # Put client_secret in request when defined. Most implementations
+        # require this as part of the parameters, even though using an
+        # authorization header with a bearer-token would seem to be preferred
+        # by draft-ietf-oauth-v2-bearer-23
+        if self.client_config.kw.get('client_secret') is not None:
+            parameters['client_id'] = self.client_config.client_id
+            parameters['client_secret'] = self.client_config.kw['client_secret']
+
         self.additional_access_token_request_parameters(parameters, request)
+        
         log.debug("Requesting access token - parameters: %s", parameters)
         data = urllib.urlencode(parameters)
+        
+        ssl_ctx = ssl_context_util.make_ssl_context_from_config(ssl_config)
+        
+        # Header required by, for example Github, to get a json response
+        config = httpsclient_utils.Configuration(
+                                        ssl_ctx,
+                                        headers={'Accept': 'application/json'})
+            
         response_json = httpsclient_utils.fetch_stream_from_url(
-            self.client_config.access_token_endpoint,
-            httpsclient_utils.Configuration(
-                    ssl_context_util.make_ssl_context_from_config(ssl_config)),
-            data)
+                                    self.client_config.access_token_endpoint,
+                                    config,
+                                    data)
+        
         response = json.load(response_json)
         access_token = response.get('access_token', None)
         if 'error' in response:
             error = response['error']
             error_description = response.get('error_description', None)
+            
+            log.error('Access token request error: %s %s', error, 
+                      error_description)
+            
             return callback(None, error, error_description)
+        
         elif access_token is None:
             error = 'invalid_request'
-            error_description = 'Error retrieving access token - no access token returned.'
+            error_description = ('Error retrieving access token - '
+                                 'no access token returned.')
+            
             return callback(None, error, error_description)
         else:
             self.access_token = access_token.encode(self.ACCESS_TOKEN_ENCODING)
+            
             log.debug("Access token received: %s", self.access_token)
+            
             return callback(self.access_token, None, None)
 
     def additional_access_token_request_parameters(self, parameters, request):
@@ -258,7 +286,6 @@ class Oauth2Client(object):
         @type request: webob.Request
         @param request: request object
         """
-        pass
 
     @staticmethod
     def _make_combined_url(base_url, parameters, state):
@@ -281,7 +308,8 @@ class Oauth2Client(object):
         sep_with_ampersand = ('?' in url)
         if parameters:
             query_string = urllib.urlencode(parameters)
-            url_parts.extend([('&' if (sep_with_ampersand) else '?'), query_string])
+            url_parts.extend([('&' if (sep_with_ampersand) else '?'), 
+                              query_string])
             sep_with_ampersand = True
 
         if state:
@@ -329,5 +357,6 @@ class Oauth2Client(object):
         """
         if cls.SESSION_ID_KEY in session:
             client_instance_id = session[cls.SESSION_ID_KEY]
+            
             if client_instance_id in cls.client_instances:
                 del cls.client_instances[client_instance_id]

@@ -60,6 +60,7 @@ class Oauth2ClientMiddleware(object):
     CA_CERT_FILE_OPTION = 'ca_cert_file'
     CA_DIR_OPTION = 'ca_dir'
     CLIENT_ID_OPTION = 'client_id'
+    CLIENT_SECRET_OPTION = 'client_secret'
     AUTHORIZATION_ENDPOINT_OPTION = 'authorization_endpoint'
     ACCESS_TOKEN_ENDPOINT_OPTION = 'access_token_endpoint'
     
@@ -74,6 +75,7 @@ class Oauth2ClientMiddleware(object):
         SCOPE_OPTION: '',
         SESSION_KEY_OPTION: 'beaker.session.oauth2client',
         TOKEN_KEY_OPTION: 'oauth2client.token',
+        CLIENT_SECRET_OPTION: None,
     }
     LAYOUT_PARAMETERS = ['heading',
                          'title',
@@ -88,6 +90,7 @@ class Oauth2ClientMiddleware(object):
                          'footerText',
                          'helpIcon',
                          'client_id',
+                         'client_secret',
                          'client_name',
                          'scope']
 
@@ -294,6 +297,8 @@ class Oauth2ClientMiddleware(object):
                                     cls.CERTIFICATE_REQUEST_PARAMETER_OPTION)
         client_id = cls._get_config_option(prefix, local_conf, 
                                            cls.CLIENT_ID_OPTION)
+        client_secret = cls._get_config_option(prefix, local_conf, 
+                                               cls.CLIENT_SECRET_OPTION)
         authorization_endpoint = cls._get_config_option(prefix, local_conf, 
                                             cls.AUTHORIZATION_ENDPOINT_OPTION)
         access_token_endpoint = cls._get_config_option(prefix, local_conf, 
@@ -304,9 +309,13 @@ class Oauth2ClientMiddleware(object):
         redirect_uri = cls.REDIRECT_URI
         
         self.client_config = Oauth2ClientConfig(
-            client_id, authorization_endpoint, access_token_endpoint,
-            base_url_path, redirect_uri,
-            certificate_request_parameter=certificate_request_parameter)
+                    client_id, 
+                    authorization_endpoint, 
+                    access_token_endpoint,
+                    base_url_path, 
+                    redirect_uri,
+                    client_secret=client_secret,
+                    certificate_request_parameter=certificate_request_parameter)
 
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
