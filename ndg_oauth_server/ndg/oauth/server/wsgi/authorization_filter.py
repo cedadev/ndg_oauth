@@ -21,6 +21,7 @@ from ndg.oauth.server.lib.render.renderer_interface import RendererInterface
 
 log = logging.getLogger(__name__)
 
+
 class Oauth2AuthorizationMiddleware(object):
     """Middleware to handle user/resource owner authorization of clients within
     a session.
@@ -47,7 +48,8 @@ class Oauth2AuthorizationMiddleware(object):
     # Configuration option defaults
     propertyDefaults = {
         BASE_URL_PATH_OPTION: 'client_authorization',
-        RENDERER_CLASS_OPTION: 'ndg.oauth.server.lib.render.genshi_renderer.GenshiRenderer',
+        RENDERER_CLASS_OPTION: \
+            'ndg.oauth.server.lib.render.genshi_renderer.GenshiRenderer',
         SESSION_KEY_OPTION: 'beaker.session.oauth2authorization',
         CLIENT_AUTHORIZATIONS_KEY_OPTION: 'client_authorizations',
         USER_IDENTIFIER_KEY_OPTION: 'REMOTE_USER'
@@ -124,15 +126,18 @@ class Oauth2AuthorizationMiddleware(object):
         log.debug("Request path_info: %s", req.path_info)
         if req.path_info.startswith(self.base_path):
             actionPath = req.path_info[len(self.base_path):]
+            
         methodName = self.__class__.method.get(actionPath, '')
         if methodName:
             log.debug("Method: %s" % methodName)
             action = getattr(self, methodName)
             return action(req, session, start_response)
+        
         elif self._app is not None:
             log.debug("Delegating to lower filter/application.")
             self._set_client_authorizations_in_environ(session, environ)
             return self._app(environ, start_response)
+        
         else:
             response = "OAuth 2.0 Authorization Filter - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
@@ -153,10 +158,12 @@ class Oauth2AuthorizationMiddleware(object):
         """
         client_authorizations = session.get(self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
         if client_authorizations:
-            log.debug("_set_client_authorizations_in_environ %s", client_authorizations.__repr__())
+            log.debug("_set_client_authorizations_in_environ %r",
+                      client_authorizations)
             environ[self.client_authorizations_env_key] = client_authorizations
         else:
-            log.debug("%s not found in session", self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
+            log.debug("%s not found in session", 
+                      self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
 
     def authorize(self, req, session, start_response):
         """
@@ -178,12 +185,18 @@ class Oauth2AuthorizationMiddleware(object):
         scope = req.params.get('scope')
         user = req.params.get('user')
         original_url = req.params.get('original_url')
-        log.debug("Client authorization request for client_id: %s  scope: %s  user: %s", client_id, scope, user)
+        log.debug("Client authorization request for client_id: %s  scope: %s  "
+                  "user: %s", client_id, scope, user)
 
-        client_authorizations = session.get(self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
+        client_authorizations = session.get(
+                                        self.CLIENT_AUTHORIZATIONS_SESSION_KEY)
         client_authorized = None
         if client_authorizations:
-            client_authorized = client_authorizations.is_client_authorized_by_user(user, client_id, scope)
+            client_authorized = \
+                client_authorizations.is_client_authorized_by_user(user, 
+                                                                   client_id, 
+                                                                   scope)
+
         if client_authorized is None:
             # No existing decision - let user decide.
             session[self.SESSION_CALL_CONTEXT_KEY] = {
@@ -193,17 +206,19 @@ class Oauth2AuthorizationMiddleware(object):
                 'user': user
                 }
             session.save()
-            log.debug("Client not authorized by user - returning authorization form.")
+            log.debug("Client not authorized by user - returning authorization "
+                      "form.")
             return self._client_auth_form(client_id, scope, req, start_response)
         else:
-            log.debug("Client already %s authorization by user.", ("granted" if client_authorized else "denied"))
+            log.debug("Client already %s authorization by user.", 
+                      ("granted" if client_authorized else "denied"))
             log.debug("Redirecting to %s", original_url)
             return self._redirect(original_url, start_response)
 
 
     def _client_auth_form(self, client_id, scope, req, start_response):
         """
-        Returns a form for the user to enter an authorization desicion.
+        Returns a form for the user to enter an authorization decision.
 
         @type client_id: str
         @param client_id: client identifier as set in the client register
@@ -262,13 +277,15 @@ class Oauth2AuthorizationMiddleware(object):
         if not call_context:
             log.error("No session context.")
             response = 'Internal server error'
-            start_response(self._get_http_status_string(httplib.INTERNAL_SERVER_ERROR),
-               [('Content-type', 'text/html'),
-                ('Content-length', str(len(response)))
-                ])
+            status_str = self._get_http_status_string(
+                                                httplib.INTERNAL_SERVER_ERROR)
+            start_response(status_str,
+                           [('Content-type', 'text/html'),
+                            ('Content-length', str(len(response)))
+                            ])
             return [response]
 
-        if ('submit' in req.params) and ('cancel' not in req.params):
+        if 'submit' in req.params and 'cancel' not in req.params:
             log.debug("User authorized client.")
             granted = True
         else:
@@ -276,14 +293,21 @@ class Oauth2AuthorizationMiddleware(object):
             granted = False
 
         # Add authorization to those for the user.
-        client_authorizations = session.setdefault(self.CLIENT_AUTHORIZATIONS_SESSION_KEY, ClientAuthorizationRegister())
+        client_authorizations = session.setdefault(
+                                        self.CLIENT_AUTHORIZATIONS_SESSION_KEY, 
+                                        ClientAuthorizationRegister())
         client_id = call_context['client_id']
         scope = call_context['scope']
         user = call_context['user']
-        log.debug("Adding client authorization for client_id: %s  scope: %s  user: %s", client_id, scope, user)
-        client_authorizations.add_client_authorization(ClientAuthorization(user, client_id, scope, granted))
+        log.debug("Adding client authorization for client_id: %s  scope: %s  "
+                  "user: %s", client_id, scope, user)
+        
+        client_authorization = ClientAuthorization(user, client_id, scope, 
+                                                   granted)
+        client_authorizations.add_client_authorization(client_authorization)
+        
         session[self.CLIENT_AUTHORIZATIONS_SESSION_KEY] = client_authorizations
-        log.debug("### client_auth: %s", client_authorizations.__repr__())
+        log.debug("### client_auth: %r", client_authorizations)
         session.save()
 
         original_url = call_context['original_url']
@@ -302,13 +326,32 @@ class Oauth2AuthorizationMiddleware(object):
         @param local_conf: attribute settings to apply
         """
         cls = self.__class__
-        self.base_path = cls._get_config_option(prefix, local_conf, cls.BASE_URL_PATH_OPTION)
-        self.client_register_file = cls._get_config_option(prefix, local_conf, cls.CLIENT_REGISTER_OPTION)
-        self.renderer_class = cls._get_config_option(prefix, local_conf, cls.RENDERER_CLASS_OPTION)
-        self.session_env_key = cls._get_config_option(prefix, local_conf, cls.SESSION_KEY_OPTION)
-        self.client_authorization_form = cls._get_config_option(prefix, local_conf, cls.CLIENT_AUTHORIZATION_FORM_OPTION)
-        self.client_authorizations_env_key = cls._get_config_option(prefix, local_conf, cls.CLIENT_AUTHORIZATIONS_KEY_OPTION)
-        self.user_identifier_env_key = cls._get_config_option(prefix, local_conf, cls.USER_IDENTIFIER_KEY_OPTION)
+        self.base_path = cls._get_config_option(
+                                            prefix, 
+                                            local_conf, 
+                                            cls.BASE_URL_PATH_OPTION)
+        self.client_register_file = cls._get_config_option(
+                                            prefix, 
+                                            local_conf, 
+                                            cls.CLIENT_REGISTER_OPTION)
+        self.renderer_class = cls._get_config_option(
+                                            prefix, 
+                                            local_conf, 
+                                            cls.RENDERER_CLASS_OPTION)
+        self.session_env_key = cls._get_config_option(
+                                            prefix, local_conf, 
+                                            cls.SESSION_KEY_OPTION)
+        self.client_authorization_form = cls._get_config_option(
+                                            prefix, 
+                                            local_conf, 
+                                            cls.CLIENT_AUTHORIZATION_FORM_OPTION)
+        self.client_authorizations_env_key = cls._get_config_option(prefix, 
+                                            local_conf, 
+                                            cls.CLIENT_AUTHORIZATIONS_KEY_OPTION)
+        self.user_identifier_env_key = cls._get_config_option(
+                                                prefix, 
+                                                local_conf, 
+                                                cls.USER_IDENTIFIER_KEY_OPTION)
 
     @staticmethod
     def _get_http_status_string(status):
@@ -317,7 +360,7 @@ class Oauth2AuthorizationMiddleware(object):
     def _redirect(self, url, start_response):
         log.debug("Redirecting to %s", url)
         start_response(self._get_http_status_string(httplib.FOUND),
-               [('Location', url.encode('ascii', 'ignore'))])
+                       [('Location', url.encode('ascii', 'ignore'))])
         return []
 
     @classmethod

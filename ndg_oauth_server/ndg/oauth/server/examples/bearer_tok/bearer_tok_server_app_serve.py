@@ -1,214 +1,22 @@
-#from paste.script.serve import ServeCommand
-#
-#ServeCommand("serve").run(["bearer_tok_server_app.ini"])
 #!/usr/bin/env python
-"""NDG Security test harness for security web services middleware stack
+"""NDG OAuth test harness for bearer token example
 
 """
 __author__ = "P J Kershaw"
 __date__ = "20/11/08"
-__copyright__ = "(C) 2009 Science and Technology Facilities Council"
+__copyright__ = "(C) 2012 Science and Technology Facilities Council"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
-__revision__ = "$Id:$"
+__revision__ = "$Id:$"  
 from os import path
-import optparse 
-     
-from OpenSSL import SSL
-from OpenSSL import crypto 
-from paste.deploy import loadapp
-from paste.script.util.logging_config import fileConfig
-
-THIS_DIR = path.dirname(__file__)
-SHARED_CONFIG_DIR  = path.join(THIS_DIR, '..', 'shared_config')
-PKI_DIR = path.join(SHARED_CONFIG_DIR, 'pki') 
-CACERT_DIR = path.join(PKI_DIR, 'ca')
-
-import paste.httpserver
-from threading import Thread
-
-
-class PasteDeployAppServer(object):
-    """Wrapper to paste.httpserver to enable background threading"""
-    
-    def __init__(self, app=None, cfgFilePath=None, port=7443, host='0.0.0.0',
-                 ssl_context=None):
-        """Load an application configuration from cfgFilePath ini file and 
-        instantiate Paste server object
-        """       
-        self.__thread = None
-        
-        if cfgFilePath:
-            if app:
-                raise KeyError('Set either the "cfgFilePath" or "app" keyword '
-                               'but not both')
-            
-            fileConfig(cfgFilePath, defaults={'here':path.dirname(cfgFilePath)})
-            app = loadapp('config:%s' % cfgFilePath)
-            
-        elif app is None:
-            raise KeyError('Either the "cfgFilePath" or "app" keyword must be '
-                           'set')
-                       
-        self.__pasteServer = paste.httpserver.serve(app, host=host, port=port, 
-                                                    start_loop=False, 
-                                                    ssl_context=ssl_context)
-    
-    @property
-    def pasteServer(self):
-        return self.__pasteServer
-    
-    @property
-    def thread(self):
-        return self.__thread
-    
-    def start(self):
-        """Start server"""
-        self.pasteServer.serve_forever()
-        
-    def startThread(self):
-        """Start server in a separate thread"""
-        self.__thread = Thread(target=PasteDeployAppServer.start, args=(self,))
-        self.thread.start()
-        
-    def terminateThread(self):
-        self.pasteServer.server_close()
-
- 
-class OpenSSLVerifyCallbackMiddleware(object):
-    """Set peer certificate retrieved from PyOpenSSL SSL context callback in
-    environ dict SSL_CLIENT_CERT item
-    
-    FOR TESTING PURPOSES ONLY - IT IS NOT THREAD SAFE
-    """
-    def __init__(self, app):
-        self._app = app
-        self.ssl_client_cert = None
-        self.ssl_client_cert_dn = None
-#        self.ignore_pat = 'localhost'
-        self.ignore_pat = None
-        
-    def createSSLCallback(self):
-        """Make a SSL Context callback function and return it to the caller"""
-        def _callback(conn, x509, errnum, errdepth, ok):
-            if errdepth == 0:
-                subject = x509.get_subject()
-                components = subject.get_components()
-                if self.ignore_pat not in [i[-1] for i in components]:
-                    self.ssl_client_cert = crypto.dump_certificate(
-                                                    crypto.FILETYPE_PEM, x509)
-                    self.ssl_client_cert_dn = '/'+ '/'.join(
-                                        ['%s=%s' % i for i in components])
-            return ok
-        
-        return _callback
-        
-    def __call__(self, environ, start_response):
-        """Set the latest peer SSL client certificate from the SSL callback
-        into environ SSL_CLIENT_CERT key"""
-        if self.ssl_client_cert:
-            environ['SSL_CLIENT_CERT'] = self.ssl_client_cert
-            environ['SSL_CLIENT_S_DN'] = self.ssl_client_cert_dn
-            self.ssl_client_cert = None
-
-        return self._app(environ, start_response)
-    
-
-class ApacheSSLVariablesMiddleware(object):
-    """Simulate Apache SSL environment setting relevant environ variables"""
-    def __init__(self, app):
-        self._app = app
-                                 
-    def __call__(self, environ, start_response):
-        environ['HTTPS'] = '1'
-        return self._app(environ, start_response)
-
-       
+                                     
+from ndg.oauth.server.examples.utils import serve_app
+                                      
 INI_FILENAME = 'bearer_tok_server_app.ini'
 
 # To start run 
 # $ paster serve services.ini or run this file as a script, see
 # $ ./securityservicesapp.py -h
 if __name__ == '__main__':    
-    cfgFilePath = path.join(path.dirname(path.abspath(__file__)), INI_FILENAME) 
-     
-    defCertFilePath = path.join(PKI_DIR, 'host.pem')
-    defPriKeyFilePath = path.join(PKI_DIR, 'host.pem')
-        
-    parser = optparse.OptionParser()
-    parser.add_option("-p",
-                      "--port",
-                      dest="port",
-                      default=5000,
-                      type='int',
-                      help="port number to run under")
-
-    parser.add_option("-s",
-                      "--with-ssl",
-                      dest="withSSL",
-                      default='True',
-                      help="Run with SSL")
-
-    parser.add_option("-c",
-                      "--cert-file",
-                      dest='certFilePath',
-                      default=defCertFilePath,
-                      help="SSL Certificate file")
-
-    parser.add_option("-k",
-                      "--private-key-file",
-                      default=defPriKeyFilePath,
-                      dest='priKeyFilePath',
-                      help="SSL private key file")
-
-    parser.add_option("-f",
-                      "--conf",
-                      dest="configFilePath",
-                      default=cfgFilePath,
-                      help="Configuration file path")
-    
-    parser.add_option("-a",
-                      "--with-ssl-client-auth",
-                      dest="ssl_client_authn",
-                      action='store_true',
-                      default=True,
-                      help="Set client authentication with SSL (requires -s "
-                           "option")
-    
-    opt = parser.parse_args()[0]
-    cfgFilePath = path.abspath(opt.configFilePath)
-    
-    if opt.withSSL.lower() == 'true':
-        ssl_context = SSL.Context(SSL.SSLv23_METHOD)
-    
-        ssl_context.set_session_id('oauthserver')
-        ssl_context.use_privatekey_file(opt.priKeyFilePath)
-        ssl_context.use_certificate_file(opt.certFilePath)
-        
-        ssl_context.load_verify_locations(None, CACERT_DIR)
-        ssl_context.set_verify_depth(9)
-        
-        # Load the application from the Paste ini file configuration        
-        fileConfig(cfgFilePath, defaults={'here': path.dirname(cfgFilePath)})
-        app = loadapp('config:%s' % cfgFilePath)
-        
-        if opt.ssl_client_authn:
-            # Wrap the application in middleware to set the SSL client certificate 
-            # obtained from the SSL handshake in environ                
-            app = OpenSSLVerifyCallbackMiddleware(app)
-            _callback = app.createSSLCallback()
-            
-            # Wrap in middleware to simulate Apache environment
-            app = ApacheSSLVariablesMiddleware(app)
-        
-            ssl_context.set_verify(SSL.VERIFY_PEER, _callback)
-            
-        server = PasteDeployAppServer(app=app, 
-                                      port=opt.port,
-                                      ssl_context=ssl_context) 
-    else:
-        ssl_context = None
-
-        server = PasteDeployAppServer(cfgFilePath=cfgFilePath, 
-                                      port=opt.port,
-                                      ssl_context=ssl_context) 
-    server.start()
+    config_filepath = path.join(path.dirname(path.abspath(__file__)), 
+                                INI_FILENAME) 
+    serve_app(INI_FILENAME)

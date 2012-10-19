@@ -66,8 +66,10 @@ class Oauth2ServerMiddleware(object):
     USER_IDENTIFIER_KEY_OPTION = 'user_identifier_key'
     USER_IDENTIFIER_GRANT_DATA_KEY = 'user_identifier'
 
+    AUTHORISATION_SERVER_ENVIRON_KEYNAME = 'ndg.server.authorisation.server'
+    
     # Configuration option defaults
-    propertyDefaults = {
+    PROPERTY_DEFAULTS = {
         ACCESS_TOKEN_LIFETIME_OPTION: 86400,
         ACCESS_TOKEN_TYPE_OPTION: 'bearer',
         AUTHORIZATION_GRANT_LIFETIME_OPTION: 600,
@@ -76,7 +78,8 @@ class Oauth2ServerMiddleware(object):
         CLIENT_AUTHENTICATION_METHOD_OPTION: 'certificate',
         CLIENT_AUTHORIZATION_URL_OPTION: '/client_authorization/authorize',
         CLIENT_AUTHORIZATIONS_KEY_OPTION: 'client_authorizations',
-        MYPROXY_CLIENT_KEY_OPTION: 'myproxy.server.wsgi.middleware.MyProxyClientMiddleware.myProxyClient',
+        MYPROXY_CLIENT_KEY_OPTION: \
+        'myproxy.server.wsgi.middleware.MyProxyClientMiddleware.myProxyClient',
         USER_IDENTIFIER_KEY_OPTION: 'REMOTE_USER'
     }
     method = {
@@ -176,6 +179,13 @@ class Oauth2ServerMiddleware(object):
         req = Request(environ)
         log.debug("Request path_info: %s", req.path_info)
 
+        # Set Authorisation Server as key in environ for access by downstream
+        # middleware or app.  For example, a resource server can use it to 
+        # check access tokens presented to it from clients against ones issued
+        # by the authorisation server
+        environ[self.__class__.AUTHORISATION_SERVER_ENVIRON_KEYNAME
+                ] = self._authorizationServer
+                
         # Determine what operation the URL specifies.
         actionPath = None
         if req.path_info.startswith(self.base_path):
@@ -462,25 +472,38 @@ class Oauth2ServerMiddleware(object):
             if k.startswith(prefix):
                 conf[k[plen:]] = v
         cls = self.__class__
+        
         self.base_path = cls._get_config_option(conf, cls.BASE_URL_PATH_OPTION)
-        self.authorization_grant_lifetime_seconds = cls._get_config_option(conf, cls.AUTHORIZATION_GRANT_LIFETIME_OPTION)
-        self.access_token_lifetime_seconds = cls._get_config_option(conf, cls.ACCESS_TOKEN_LIFETIME_OPTION)
-        self.access_token_type = cls._get_config_option(conf, cls.ACCESS_TOKEN_TYPE_OPTION)
-        self.certificate_request_parameter = cls._get_config_option(conf, cls.CERTIFICATE_REQUEST_PARAMETER_OPTION)
-        self.client_authorization_url  = cls._get_config_option(conf, cls.CLIENT_AUTHORIZATION_URL_OPTION)
-        self.client_authentication_method  = cls._get_config_option(conf, cls.CLIENT_AUTHENTICATION_METHOD_OPTION)
-        self.client_authorizations_env_key = cls._get_config_option(conf, cls.CLIENT_AUTHORIZATIONS_KEY_OPTION)
-        self.client_register_file = cls._get_config_option(conf, cls.CLIENT_REGISTER_OPTION)
-        self.myproxy_client_env_key = cls._get_config_option(conf, cls.MYPROXY_CLIENT_KEY_OPTION)
-        self.myproxy_global_password = cls._get_config_option(conf, cls.MYPROXY_GLOBAL_PASSWORD_OPTION)
-        self.user_identifier_env_key = cls._get_config_option(conf, cls.USER_IDENTIFIER_KEY_OPTION)
+        self.authorization_grant_lifetime_seconds = cls._get_config_option(
+                                conf, cls.AUTHORIZATION_GRANT_LIFETIME_OPTION)
+        self.access_token_lifetime_seconds = cls._get_config_option(
+                                conf, cls.ACCESS_TOKEN_LIFETIME_OPTION)
+        self.access_token_type = cls._get_config_option(
+                                conf, cls.ACCESS_TOKEN_TYPE_OPTION)
+        self.certificate_request_parameter = cls._get_config_option(
+                                conf, cls.CERTIFICATE_REQUEST_PARAMETER_OPTION)
+        self.client_authorization_url  = cls._get_config_option(
+                                conf, cls.CLIENT_AUTHORIZATION_URL_OPTION)
+        self.client_authentication_method  = cls._get_config_option(
+                                conf, cls.CLIENT_AUTHENTICATION_METHOD_OPTION)
+        self.client_authorizations_env_key = cls._get_config_option(
+                                conf, cls.CLIENT_AUTHORIZATIONS_KEY_OPTION)
+        self.client_register_file = cls._get_config_option(
+                                conf, cls.CLIENT_REGISTER_OPTION)
+        self.myproxy_client_env_key = cls._get_config_option(
+                                conf, cls.MYPROXY_CLIENT_KEY_OPTION)
+        self.myproxy_global_password = cls._get_config_option(
+                                conf, cls.MYPROXY_GLOBAL_PASSWORD_OPTION)
+        self.user_identifier_env_key = cls._get_config_option(
+                                conf, cls.USER_IDENTIFIER_KEY_OPTION)
+        
         # Return any options that start with the prefix but haven't been read
         # above.
         return conf
 
     @classmethod
     def _get_config_option(cls, conf, key):
-        value = conf.pop(key, cls.propertyDefaults.get(key, None))
+        value = conf.pop(key, cls.PROPERTY_DEFAULTS.get(key, None))
         log.debug("Oauth2ServerMiddleware configuration %s=%s", key, value)
         return value
 

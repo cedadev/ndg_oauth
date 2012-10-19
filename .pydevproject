@@ -8,6 +8,8 @@
 <path>/Users/philipkershaw/Documents/workspace/ndg_httpsclient</path>
 <path>/Users/philipkershaw/Documents/workspace/MyProxyClient</path>
 <path>/Users/philipkershaw/Documents/workspace/MyProxyWebService</path>
+<path>/Users/philipkershaw/Documents/workspace/online_ca_service</path>
+<path>/Users/philipkershaw/Documents/workspace/CertificateAuthority</path>
 </pydev_pathproperty>
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/ndg_oauth/ndg_oauth_server</path>
