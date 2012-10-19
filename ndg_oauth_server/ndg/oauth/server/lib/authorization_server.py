@@ -15,13 +15,16 @@ import logging
 import httplib
 import urllib
 
-from ndg.oauth.server.lib.access_token.make_access_token import make_access_token
+from ndg.oauth.server.lib.access_token.make_access_token import \
+                                                    make_access_token
 from ndg.oauth.server.lib.oauth.access_token import AccessTokenRequest
-from ndg.oauth.server.lib.oauth.authorize import AuthorizeRequest, AuthorizeResponse
+from ndg.oauth.server.lib.oauth.authorize import (AuthorizeRequest, 
+                                                  AuthorizeResponse)
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
 from ndg.oauth.server.lib.register.access_token import AccessTokenRegister
 from ndg.oauth.server.lib.register.client import ClientRegister
-from ndg.oauth.server.lib.register.authorization_grant import AuthorizationGrantRegister
+from ndg.oauth.server.lib.register.authorization_grant import \
+                                                    AuthorizationGrantRegister
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +48,8 @@ class AuthorizationServer(object):
         It is assumed that the caller has checked whether the user is
         authenticated and that the user has authorised the client and scope.
 
-        Request query parameters (from http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
+        Request query parameters (from 
+        http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
 
         response_type
               REQUIRED.  Value MUST be set to "code".
@@ -127,14 +131,14 @@ class AuthorizationServer(object):
                                      response_type)
 
             client_error = self.client_register.is_valid_client(
-                                                        auth_request.client_id, 
-                                                        auth_request.redirect_uri)
+                                                    auth_request.client_id, 
+                                                    auth_request.redirect_uri)
             if client_error:
                 log.error("Invalid client: %s", client_error)
                 return (None, httplib.BAD_REQUEST, client_error)
 
-            # redirect_uri must be included in the request if the client has more
-            # than one registered.
+            # redirect_uri must be included in the request if the client has
+            # more than one registered.
             client = self.client_register.register[auth_request.client_id]
             if len(client.redirect_uris) != 1 and not auth_request.redirect_uri:
                 log.error("An authorization request has been made without a "
@@ -196,8 +200,10 @@ class AuthorizationServer(object):
                 client.redirect_uris[0]
         )
         if not redirect_uri:
-            return(None, httplib.BAD_REQUEST,
-                   'An authorization request has been made without a return URI.')
+            return (
+                None, 
+                httplib.BAD_REQUEST,
+                'An authorization request has been made without a return URI.')
 
         # Redirect back to client with authorization code or error.
         if error:
@@ -250,7 +256,8 @@ class AuthorizationServer(object):
         """
         Handles a request for an access token.
 
-        Request parameters in post data (from http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
+        Request parameters in post data (from 
+        http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
 
         The client makes a request to the token endpoint by adding the
         following parameters using the "application/x-www-form-urlencoded"
@@ -301,14 +308,16 @@ class AuthorizationServer(object):
             else:
                 log.debug("Client id: %s", client_id)
 
-            # redirect_uri is only required if it was included in the authorization request.
+            # redirect_uri is only required if it was included in the 
+            # authorization request.
             required_parameters = ['grant_type', 'code']
             for param in required_parameters:
                 if param not in params:
                     log.error("Missing request parameter %s from inputs: %s",
                               param, params)
-                    raise OauthException('invalid_request', 
-                                    ("Missing request parameter: %s" % param))
+                    raise OauthException(
+                                    'invalid_request', 
+                                    "Missing request parameter: %s" % param)
 
         except OauthException, exc:
             return (self._error_access_token_response(exc.error, 
@@ -330,10 +339,10 @@ class AuthorizationServer(object):
                     None, None)
 
         if response:
-            return(self._access_token_response(response), None, None)
+            return self._access_token_response(response), None, None
         else:
-            return(None, httplib.INTERNAL_SERVER_ERROR, 
-                   'Access token generation failed.')
+            return (None, httplib.INTERNAL_SERVER_ERROR, 
+                    'Access token generation failed.')
 
     def _access_token_response(self, resp):
         """Constructs the JSON response to an access token request.
@@ -452,8 +461,8 @@ class AuthorizationServer(object):
                 required_scope = scope
             else:
                 required_scope = params.get('scope', None)
-            (token, error) = self.access_token_register.get_token(access_token,
-                                                                required_scope)
+            error = self.access_token_register.get_token(access_token,
+                                                         required_scope)[-1]
 
         status = {'invalid_request': httplib.BAD_REQUEST,
                   'invalid_token': httplib.FORBIDDEN,
@@ -509,7 +518,8 @@ class AuthorizationServer(object):
                 required_scope = scope
             else:
                 required_scope = params.get('scope', None)
-            (token, error) = self.access_token_register.get_token(access_token,
+                
+            token, error = self.access_token_register.get_token(access_token,
                                                                 required_scope)
 
         status = {'invalid_request': httplib.BAD_REQUEST,
@@ -517,7 +527,7 @@ class AuthorizationServer(object):
                   'insufficient_scope': httplib.FORBIDDEN,
                   None: httplib.OK}.get(error, httplib.BAD_REQUEST)
 
-        return (token, status, error)
+        return token, status, error
 
     def is_registered_client(self, request):
         """Determines whether the client ID in the request is registered.
@@ -529,11 +539,11 @@ class AuthorizationServer(object):
         """
         client_id = request.params.get('client_id', None)
         if not client_id:
-            return ('invalid_request', 'Missing request parameter: client_id')
+            return 'invalid_request', 'Missing request parameter: client_id'
         else:
             error_description = self.client_register.is_registered_client(
                                                                     client_id)
             if error_description:
-                return ('unauthorized_client', error_description)
+                return 'unauthorized_client', error_description
             
-        return (None, None)
+        return None, None

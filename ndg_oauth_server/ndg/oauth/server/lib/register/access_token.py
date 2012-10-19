@@ -66,18 +66,21 @@ class AccessTokenRegister(RegisterBase):
         except KeyError:
             log.debug("Request for token of ID that is not registered: %s",
                       token_id)
-            return (None, 'invalid_token')
+            return None, 'invalid_token'
 
         if not token.valid:
             log.debug("Request for invalid token of ID: %s", token_id)
-            return (None, 'invalid_token')
+            return None, 'invalid_token'
+        
         if token.expires <= datetime.utcnow():
             log.debug("Request for expired token of ID: %s", token_id)
-            return (None, 'invalid_token')
+            return None, 'invalid_token'
+                    
         # Check scope
         if not scopeutil.isScopeGranted(token.scope,
                                         scopeutil.scopeStringToList(scope)):
-            log.debug("Request for token of ID: %s - token was not granted scope %s",
-                      token_id, scope)
-            return (None, 'insufficient_scope')
-        return (token, None)
+            log.debug("Request for token of ID: %s - token was not granted "
+                      "scope %s", token_id, scope)
+            return None, 'insufficient_scope'
+        
+        return token, None

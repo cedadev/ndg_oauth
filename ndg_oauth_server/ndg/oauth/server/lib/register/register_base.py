@@ -32,7 +32,8 @@ class RegisterBase(object):
         cache_opts = {
             'cache.expire': config.get(base + 'expire', None),
             'cache.type': config.get(base + 'type', 'file'),
-            'cache.data_dir': config.get(base + 'data_dir', '/tmp/ndgoauth/cache/' + name),
+            'cache.data_dir': config.get(base + 'data_dir', 
+                                         '/tmp/ndgoauth/cache/' + name),
             'cache.lock_dir': config.get(base + 'lock_dir', None)
             }
         return cache_opts

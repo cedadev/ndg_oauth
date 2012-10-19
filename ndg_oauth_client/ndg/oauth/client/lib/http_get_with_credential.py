@@ -110,7 +110,7 @@ class HttpGetWithCredential(object):
    
                 self.user_ssl_context.use_privatekey(clientKey)
                 self.user_ssl_context.use_certificate(clientCert)
-                log.debug("Created new SLL context")
+                log.debug("Created new SSL context")
             else:
                 log.warn("Certificate needed but no token available")
 

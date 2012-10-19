@@ -222,11 +222,13 @@ class Oauth2ServerMiddleware(object):
         if not user:
             log.debug("%s not in environ - authentication required",
                       self.user_identifier_env_key)
-            start_response(self._get_http_status_string(httplib.UNAUTHORIZED), [])
+            start_response(self._get_http_status_string(httplib.UNAUTHORIZED), 
+                           [])
             return []
 
         # User authorization for the client is also required.
-        (client_authorized, authz_uri) = self._check_client_authorization(user, req)
+        (client_authorized, authz_uri) = self._check_client_authorization(user, 
+                                                                          req)
         if authz_uri:
             log.debug("Redirecting to %s", authz_uri)
             return self._redirect(authz_uri, start_response)
@@ -237,7 +239,8 @@ class Oauth2ServerMiddleware(object):
         # Request authorization grant.
         (redirect_uri, 
          error, 
-         error_description) = self._authorizationServer.authorize(req, 
+         error_description) = self._authorizationServer.authorize(
+                                                            req, 
                                                             client_authorized)
         if error:
             self._error_response(error, error_description, start_response)
@@ -391,8 +394,9 @@ class Oauth2ServerMiddleware(object):
             status = httplib.FORBIDDEN
 
         if status == httplib.OK:
-            (token, status,
-                error) = self._authorizationServer.get_registered_token(req, dn)
+            (token, 
+             status,
+             error) = self._authorizationServer.get_registered_token(req, dn)
 
         if status == httplib.OK:
             # Token is valid so get a certificate.
