@@ -14,6 +14,7 @@ import json
 from webob import Request
 
 from ndg.oauth.server.wsgi.oauth2_server import Oauth2ServerMiddleware
+from ndg.oauth.server.lib.authorization_server import AuthorizationServer
 
 log = logging.getLogger(__name__)
 is_iterable = lambda obj: getattr(obj, '__iter__', False) 
@@ -39,14 +40,30 @@ class Oauth2ResourceServerMiddleware(object):
     MATCH_SCOPE_TO_CLIENT_DN_OPTNAME = 'match_scope_to_client_dn'
     RESOURCE_URIPATHS_OPTNAME = 'resource_uripaths'
     
+    CLAIMED_USER_ID_ENVIRON_KEY_OPTNAME = 'claimed_userid_environ_key'
+    DEFAULT_CLAIMED_USER_ID_ENVIRON_KEYNAME = \
+        'oauth.resource_server.claimed_userid'
+    
     AUTHORISATION_SERVER_ENVIRON_KEYNAME = \
         Oauth2ServerMiddleware.AUTHORISATION_SERVER_ENVIRON_KEYNAME
         
+    __slots__ = (
+        '_app',
+        '__authorization_server',
+        'claimed_userid_environ_key',
+        '__resource_uripaths',
+        '__required_scope'
+    )
     def __init__(self, app):
         self._app = app
-        self._authorization_server = None
-        self.match_scope_to_client_dn = False
+        self.__authorization_server = None
+        self.claimed_userid_environ_key = \
+            self.__class__.DEFAULT_CLAIMED_USER_ID_ENVIRON_KEYNAME
         self.__resource_uripaths = []
+        
+        # Scope for this resource - multiple space delimited scope values may
+        # be set
+        self.__required_scope = None
         
     @classmethod
     def filter_app_factory(cls, app, global_conf, prefix=DEFAULT_PARAM_PREFIX,
@@ -91,7 +108,30 @@ class Oauth2ResourceServerMiddleware(object):
         else:
             raise TypeError('Expecting single string or space-separated URI '
                             'paths or an iterable; got %r instead' % type(val))
-            
+     
+    @property
+    def authorization_server(self):
+        return self.__authorization_server
+    
+    @authorization_server.setter
+    def authorization_server(self, val):
+        if not isinstance(val, AuthorizationServer):
+            raise TypeError('Expecting %r type for "authorization_server" '
+                            'attribute; got %r instead' % (AuthorizationServer, 
+                                                           type(val)))
+        self.__authorization_server = val
+     
+    @property
+    def required_scope(self):
+        return self.__required_scope
+    
+    @required_scope.setter
+    def required_scope(self, val):
+        if not isinstance(val, basestring):
+            raise TypeError('Expecting string type for "required_scope" '
+                            'attribute; got %r instead' % type(val))
+        self.__required_scope = val 
+                       
     def __call__(self, environ, start_response):
         '''Apply validation of access token for configured resource paths
         
@@ -102,15 +142,11 @@ class Oauth2ResourceServerMiddleware(object):
         '''
         request = Request(environ)
         
-        self._authorization_server = environ.get(
+        self.authorization_server = environ.get(
                             self.__class__.AUTHORISATION_SERVER_ENVIRON_KEYNAME)
-        if self._authorization_server is None:
-            raise Oauth2ResourceServerMiddlewareConfigError(
-                'No %r key to authorisation server set in environ' %
-                    self.__class__.AUTHORISATION_SERVER_ENVIRON_KEYNAME)
         
         if self._match_uripath(request.path_info):
-            self.request_resource(request, start_response)
+            return self.request_resource(request, start_response)
         else:
             return self._app(environ, start_response)
     
@@ -132,45 +168,30 @@ class Oauth2ResourceServerMiddleware(object):
         log.debug("Oauth2ResourceServerMiddleware.request_resource called for "
                   "path %r", request.path_info)
 
-        status = httplib.OK
-        content_dict ={}
-        
-        if self.match_scope_to_client_dn:
-            provided_scope = request.environ.get(self.CERT_DN_ENVIRON_KEY)
-            if provided_scope:
-                log.debug("Found certificate DN: %s", provided_scope)
-            else:
-                # Client must be authenticated - no other error should be 
-                # included in this case.
-                status = httplib.UNAUTHORIZED
-                content_dict['error'] = (
-                    "Client certificate %r subject required to match with "
-                    "scope but none set") % provided_scope
-                    
-                log.error(content_dict['error'])
-        else:
-            provided_scope = None
-        
         # Check the token
-        if status == httplib.OK:    
-            status, error = self._authorization_server.get_registered_token(
+        token, status, error = self.authorization_server.get_registered_token(
                                                     request, 
-                                                    scope=provided_scope)[1:]
-            if error:
-                content_dict.setdefault('error', error)
-            else:
-                return None  # signal to caller that validation succeeded
-            
-        response = json.dumps(content_dict)
-        headers = [
-            ('Content-Type', 'application/json; charset=UTF-8'),
-            ('Cache-Control', 'no-store'),
-            ('Content-length', str(len(response))),
-            ('Pragma', 'no-store')
-        ]
-        status_str = "%d %s" % (status, httplib.responses[status])
-        start_response(status_str, headers)
-        return [response]
+                                                    scope=self.required_scope)
+        if not error:
+            request.environ[self.claimed_userid_environ_key
+                    ] = token.grant.additional_data.get('user_identifier')
+                            
+            return self._app(request.environ, start_response)
+        else:
+            status = httplib.OK
+            content_dict ={}
+            content_dict.setdefault('error', error)
+                        
+            response = json.dumps(content_dict)
+            headers = [
+                ('Content-Type', 'application/json; charset=UTF-8'),
+                ('Cache-Control', 'no-store'),
+                ('Content-length', str(len(response))),
+                ('Pragma', 'no-store')
+            ]
+            status_str = "%d %s" % (status, httplib.responses[status])
+            start_response(status_str, headers)
+            return [response]
     
     def _match_uripath(self, path):
         '''Match the input request against a configured list of URI patterns

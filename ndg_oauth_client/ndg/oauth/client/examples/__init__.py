@@ -36,14 +36,15 @@ class OAuthClientTestApp(object):
         elif self.app is not None:
             return self.app(environ, start_response)
         else:
-            start_response('404 Not Found', [('Content-type', 'text/plain')])
+            start_response('404 Not Found', 
+                           [('Content-type', 'text/plain; charset=UTF-8')])
             return "ndg_oauth WSGI Test Application: invalid URI"
 
     def default(self, environ, start_response):
         log.debug('OAuthClientApp.default ...')
         response = "<h2>ndg_oauth WSGI Test Application</h2>"
         start_response('200 OK', 
-                       [('Content-type', 'text/html'),
+                       [('Content-type', 'text/html; charset=UTF-8'),
                         ('Content-length', str(len(response)))])
         return [response]
 
@@ -63,7 +64,7 @@ class OAuthClientTestApp(object):
             response.append("<p>token not found</p>")
 
         start_response('200 OK', 
-                       [('Content-type', 'text/html'),
+                       [('Content-type', 'text/html; charset=UTF-8'),
                         ('Content-length', 
                          str(sum([len(r) for r in response])))])
         return response
@@ -130,7 +131,7 @@ class BearerTokOAuthClientApp(OAuthClientTestApp):
                                                         certificate))
 
         start_response('200 OK',
-                       [('Content-type', 'text/html'),
+                       [('Content-type', 'text/html; charset=UTF-8'),
                         ('Content-length', str(sum([len(r) for r in response])))
                         ])
         return response

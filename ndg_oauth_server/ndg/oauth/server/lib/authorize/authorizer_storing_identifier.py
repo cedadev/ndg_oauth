@@ -34,7 +34,8 @@ class AuthorizerStoringIdentifier(AuthorizerInterface):
         """
         self.lifetime = lifetime
         self.user_identifier_env_key = kw.get('user_identifier_env_key')
-        self.user_identifier_grant_data_key = kw.get('user_identifier_grant_data_key')
+        self.user_identifier_grant_data_key = kw.get(
+                                            'user_identifier_grant_data_key')
 
     def generate_authorization_grant(self, auth_request, request):
         """Generates an authorization grant.
@@ -55,10 +56,13 @@ class AuthorizerStoringIdentifier(AuthorizerInterface):
         """
         user_identifier = request.environ.get(self.user_identifier_env_key)
         if not user_identifier:
-            log.error('Could not find user identifier key "%s" in environ', self.user_identifier_env_key)
-            raise OauthException('server_error', 'Authorization grant could not be created')
+            log.error('Could not find user identifier key "%s" in environ', 
+                      self.user_identifier_env_key)
+            raise OauthException('server_error', 
+                                 'Authorization grant could not be created')
 
         code = uuid.uuid4().hex
+        additional_data = {self.user_identifier_grant_data_key: user_identifier}
         grant = AuthorizationGrant(code, auth_request, self.lifetime,
-                                   additional_data={self.user_identifier_grant_data_key: user_identifier})
-        return (grant, code)
+                                   additional_data=additional_data)
+        return grant, code

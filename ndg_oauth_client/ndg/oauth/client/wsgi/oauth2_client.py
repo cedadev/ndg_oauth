@@ -71,7 +71,8 @@ class Oauth2ClientMiddleware(object):
         AUTHENTICATION_URL_OPTION: 'oauth_authenticate',
         BASE_URL_PATH_OPTION: '',
         CERTIFICATE_REQUEST_PARAMETER_OPTION: 'certificate_request',
-        RENDERER_CLASS_OPTION: 'ndg.oauth.client.lib.render.genshi_renderer.GenshiRenderer',
+        RENDERER_CLASS_OPTION: \
+            'ndg.oauth.client.lib.render.genshi_renderer.GenshiRenderer',
         SCOPE_OPTION: '',
         SESSION_KEY_OPTION: 'beaker.session.oauth2client',
         TOKEN_KEY_OPTION: 'oauth2client.token',
@@ -347,12 +348,14 @@ class Oauth2ClientMiddleware(object):
             redirect URI if redirect needed or None
         """
         client = self._oauth_client_class.get_client_instance(session,
-                                                self.client_config, create=True)
+                                                              self.client_config,
+                                                              create=True)
 
         callback = self._token_retriever_class(client)
 
-        (result, redirect_url) = client.call_with_access_token(
-            self.scope, application_url, callback)
+        result, redirect_url = client.call_with_access_token(self.scope, 
+                                                             application_url, 
+                                                             callback)
         session.save()
 
         return (result, redirect_url)
@@ -365,7 +368,8 @@ class Oauth2ClientMiddleware(object):
         @rtype: result type of callback
         @return: result of callback
         """
-        client = self._oauth_client_class.get_client_instance(session,
+        client = self._oauth_client_class.get_client_instance(
+                                                            session,
                                                             self.client_config)
         if client:
             # Return callback result.
@@ -406,6 +410,7 @@ class TokenRetriever(object):
             return None
         return self.client.access_token
 
+
 class MyProxyTokenRetriever(object):
     def __init__(self, client):
         self.client = client
@@ -430,4 +435,4 @@ class MyProxyTokenRetriever(object):
         if error:
             return None
 #            return ("", ("Token not available because of error: %s - %s" % (error, error_description)))
-        return (self.client.private_key, self.client.access_token)
+        return self.client.private_key, self.client.access_token

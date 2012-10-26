@@ -304,7 +304,7 @@ class Oauth2ServerMiddleware(object):
                               urllib.urlencode(url_params)))
             return (None, url)
         
-        return (client_authorized, None)
+        return client_authorized, None
 
     def _make_client_authorization_url(self, req):
         parts = urlparse.urlparse(self.client_authorization_url)

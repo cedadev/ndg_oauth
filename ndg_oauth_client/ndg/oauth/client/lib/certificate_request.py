@@ -21,7 +21,9 @@ log = logging.getLogger(__name__)
 
 DEFAULT_CERTIFICATE_REQUEST_PARAMETER = 'certificate_request'
 
-def request_certificate(token, resource_server_url, ssl_config,
+def request_certificate(token, 
+                        resource_server_url, 
+                        ssl_config,
                         certificate_request_parameter=None):
     """Requests a certificate using an OAuth authorized resource request.
     @param token: access token to use in request
@@ -47,14 +49,21 @@ def request_certificate(token, resource_server_url, ssl_config,
     # Make POST request to obtain an access token.
     log.debug("Resource request - parameters: %s", parameters)
     data = urllib.urlencode(parameters)
-    response_json = httpsclient_utils.fetch_stream_from_url(
-            resource_server_url,
-            httpsclient_utils.Configuration(
-                    ssl_context_util.make_ssl_context_from_config(ssl_config)),
-            data)
-    response = json.load(response_json)
-    certificate = response.get('certificate', None)
+    config = httpsclient_utils.Configuration(
+                    ssl_context_util.make_ssl_context_from_config(ssl_config))
+    
+    response = httpsclient_utils.fetch_stream_from_url(resource_server_url,
+                                                       config,
+                                                       data)
+
+    # TODO: Refactor so that does or doesn't support JSON response - currently
+    # works so that it will accept either
+    if 'application/json' in response.headers.get('Content-type', ''):
+        response_json = json.load(response)
+        certificate = response_json.get('certificate', None)
+    else:       
+        certificate = response.read() 
 
     # Get the private key.
     private_key = openssl_cert.getKeyPairPrivateKey(key_pair)
-    return (private_key, certificate)
+    return private_key, certificate

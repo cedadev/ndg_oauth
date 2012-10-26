@@ -24,8 +24,12 @@ class HttpGetWithCredential(object):
     """
     DEFAULT_TOKEN_ENV_KEYNAME = 'oauth2client.token'
 
-    def __init__(self, resource_server_url, client_cert, client_key,
-                 ca_cert_file, ca_dir,
+    def __init__(self, 
+                 resource_server_url, 
+                 client_cert, 
+                 client_key,
+                 ca_cert_file, 
+                 ca_dir,
                  token_env_key=None,
                  certificate_request_parameter=None):
         """
@@ -81,9 +85,9 @@ class HttpGetWithCredential(object):
         if current_token:
             log.debug("Token ID: %s", current_token)
         else:
-            log.debug("No token found with environ key: %s",
-                      self.token_env_key)
-        if ((self.token != current_token) or not self.user_ssl_context):
+            log.debug("No token found with environ key: %s", self.token_env_key)
+            
+        if self.token != current_token or not self.user_ssl_context:
             log.debug("Certificate request needed")
             if current_token:
                 self.token = current_token
@@ -91,8 +95,10 @@ class HttpGetWithCredential(object):
                 log.debug("Making certificate request")
                 (private_key,
                  certificate) = certificate_request.request_certificate(
-                    self.token, self.resource_server_url,
-                    self.client_ssl_config, self.certificate_request_parameter)
+                                            self.token, 
+                                            self.resource_server_url,
+                                            self.client_ssl_config, 
+                                            self.certificate_request_parameter)
     
                 # Create SSL context using the resource owner's delegated
                 # credential.
