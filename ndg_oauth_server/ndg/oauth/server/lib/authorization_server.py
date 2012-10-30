@@ -33,6 +33,8 @@ class AuthorizationServer(object):
     """
     Provides the core OAuth 2.0 server functions.
     """
+    AUTHZ_HDR_ENV_KEYNAME = 'HTTP_AUTHORIZATION'
+     
     def __init__(self, client_register_file, authorizer, client_authenticator,
                  access_token_generator, config):
         self.client_register = ClientRegister(client_register_file)
@@ -508,19 +510,30 @@ class AuthorizationServer(object):
                      error description
                  )
         """
-        params = request.params
-        token = None
-        if 'access_token' not in params:
+        authorization_hdr = request.environ.get(
+                                        self.__class__.AUTHZ_HDR_ENV_KEYNAME)
+        try:
+            token_type, access_token = authorization_hdr.split()
+            
+        except AttributeError:
+            log.error('No Authorization header present for request to %r', 
+                      request.path_url)
             error = 'invalid_request'
+            
+        except ValueError:
+            log.error('Unexpected Authorization header values %r for request '
+                      'to %r', authorization_hdr, request.path_url)
+            error = 'invalid_request'
+            
         else:
-            access_token = params['access_token']
-            if scope:
-                required_scope = scope
-            else:
-                required_scope = params.get('scope', None)
-                
-            token, error = self.access_token_register.get_token(access_token,
-                                                                required_scope)
+            if token_type != 'Bearer':
+                log.error('Token type retrieved is %r, expecting "Bearer" type',
+                          token_type)
+                error = 'invalid_request'
+            else:   
+                token, error = self.access_token_register.get_token(
+                                                                access_token, 
+                                                                None)
 
         status = {'invalid_request': httplib.BAD_REQUEST,
                   'invalid_token': httplib.FORBIDDEN,

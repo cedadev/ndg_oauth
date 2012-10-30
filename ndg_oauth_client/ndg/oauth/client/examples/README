@@ -8,4 +8,4 @@ slcs/ -             retrieve an X.509 cert.-based credentials
 shared_config/ -    contains config files used by all example configurations
 
 These examples should be used with their equivalent authorisation/resource
-server apps in ndg.oauth.server.examples
+server apps in ndg.oauth.server.examples from the ndg_oauth_server package.

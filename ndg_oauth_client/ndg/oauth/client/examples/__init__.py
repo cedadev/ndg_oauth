@@ -6,27 +6,48 @@ __copyright__ = "(C) 2011 Science and Technology Facilities Council"
 __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
+import urllib
 import logging
+from abc import ABCMeta, abstractmethod
+
+from ndg.oauth.client.lib import certificate_request
+from ndg.httpsclient import ssl_context_util 
+import ndg.httpsclient.utils as httpsclient_utils
+
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
-from ndg.oauth.client.lib import certificate_request
-from ndg.httpsclient import ssl_context_util
 
-
-class OAuthClientTestApp(object):
+class OAuthClientTestAppBase(object):
     """
     Simple WSGI application that displays a token set in the WSGI environ by
     Oauth2ClientMiddleware.
     """
+    __metaclass__ = ABCMeta
+    
     method = {
         "/": 'default',
-        "/token": 'tok'
+        "/token": 'tok',
+        '/resource': 'get_resource'
     }
-    TOKEN_ENV_KEYNAME = 'oauth2client.token'
+    
+    DEFAULT_TOKEN_ENV_KEYNAME = 'oauth2client.token'
+    
     def __init__(self, app, app_conf, **local_conf):
-        self.beakerSessionKeyName = app_conf['beakerSessionKeyName']
+        self.beaker_session_keyname = app_conf['beaker_session_keyname']
         self.app = app
+
+        self.resource_url = local_conf['resource_url']
+        self.token_env_key = local_conf.get('oauth2_token_key',
+                                            self.DEFAULT_TOKEN_ENV_KEYNAME)
+
+        # SSL configuration
+        client_cert = local_conf.get('client_cert')
+        client_key = local_conf.get('client_key')
+        self.ca_cert_file = local_conf.get('ca_cert_file')
+        self.ca_dir = local_conf.get('ca_dir')
+        self.ssl_config = ssl_context_util.SSlContextConfig(client_key,
+            client_cert, self.ca_cert_file, self.ca_dir, True)
 
     def __call__(self, environ, start_response):
         methodName = self.method.get(environ['PATH_INFO'], '').rstrip()
@@ -51,7 +72,7 @@ class OAuthClientTestApp(object):
     def tok(self, environ, start_response):
         log.debug('OAuthClientApp.tok ...')
 
-        tok = environ.get(self.TOKEN_ENV_KEYNAME)
+        tok = environ.get(self.__class__.DEFAULT_TOKEN_ENV_KEYNAME)
         response = ["<h2>ndg_oauth WSGI Test Application: Get Token"
                     "</h2>"]
         if tok:
@@ -76,33 +97,54 @@ class OAuthClientTestApp(object):
     @classmethod
     def filter_app_factory(cls, app, app_conf, **local_conf):
         return cls(app, app_conf, **local_conf)
+        
+    @abstractmethod
+    def get_resource(self, environ, start_response):
+        '''Retrieve a resource secured by the OAuth resource server'''
+        
+
+class BearerTokOAuthClientApp(OAuthClientTestAppBase):   
+    '''Example client application for bearer token OAuth'''
     
+    def get_resource(self, environ, start_response):
+        response = [
+            "<h2>ndg_oauth WSGI Test Application: get secured resource</h2>"
+        ]
+
+        parameters = {'access_token': environ[self.token_env_key]}
     
-class BearerTokOAuthClientApp(OAuthClientTestApp):
+        # Make POST request to obtain an access token.
+        log.debug("Resource request - parameters: %s", parameters)
+        data = urllib.urlencode(parameters)
+        
+        config = httpsclient_utils.Configuration(
+                ssl_context_util.make_ssl_context_from_config(self.ssl_config))
+        
+        resource_server_response = httpsclient_utils.fetch_stream_from_url(
+                                                           self.resource_url,
+                                                           config,
+                                                           data)
+
+        output = resource_server_response.read()
+        response.append('<p>%r</p>' % output)
+
+        start_response('200 OK',
+                       [('Content-type', 'text/html; charset=UTF-8'),
+                        ('Content-length', str(sum([len(r) for r in response])))
+                        ])
+        return response
+    
+            
+class SlcsExampleOAuthClientApp(OAuthClientTestAppBase):
     '''Extend basic OAuth client demonstration application to illustrate
-    retrieving a resource (in this case a certificate)
+    retrieving a a certificate from a Short-Lived Credential Service.
     '''
-    method = OAuthClientTestApp.method
-    method['/resource'] = 'get_resource'
-    
-    DEFAULT_TOKEN_ENV_KEYNAME = 'oauth2client.token'
     DEFAULT_CERTIFICATE_REQUEST_PARAMETER = 'certificate_request'
     
     def __init__(self, app, app_conf, **local_conf):
-        self.app = app
-
-        self.resource_url = local_conf['resource_url']
-        self.token_env_key = local_conf.get('oauth2_token_key',
-                                            self.DEFAULT_TOKEN_ENV_KEYNAME)
-
-        # SSL configuration
-        client_cert = local_conf.get('client_cert')
-        client_key = local_conf.get('client_key')
-        self.ca_cert_file = local_conf.get('ca_cert_file')
-        self.ca_dir = local_conf.get('ca_dir')
-        self.ssl_config = ssl_context_util.SSlContextConfig(client_key,
-            client_cert, self.ca_cert_file, self.ca_dir, True)
-
+        super(BearerTokOAuthClientApp, self).__init__(app, app_conf, 
+                                                      **local_conf)
+        
         # OAuth client configuration
         self.certificate_request_parameter = local_conf.get(
                                     'certificate_request_parameter',

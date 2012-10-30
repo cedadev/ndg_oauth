@@ -66,7 +66,8 @@ class Oauth2ServerMiddleware(object):
     USER_IDENTIFIER_KEY_OPTION = 'user_identifier_key'
     USER_IDENTIFIER_GRANT_DATA_KEY = 'user_identifier'
 
-    AUTHORISATION_SERVER_ENVIRON_KEYNAME = 'ndg.server.authorisation.server'
+    AUTHORISATION_SERVER_ENVIRON_KEYNAME = \
+                                        'ndg.oauth.server.authorisation.server'
     
     # Configuration option defaults
     PROPERTY_DEFAULTS = {
@@ -237,8 +238,8 @@ class Oauth2ServerMiddleware(object):
             return []
 
         # User authorization for the client is also required.
-        (client_authorized, authz_uri) = self._check_client_authorization(user, 
-                                                                          req)
+        client_authorized, authz_uri = self._check_client_authorization(user, 
+                                                                        req)
         if authz_uri:
             log.debug("Redirecting to %s", authz_uri)
             return self._redirect(authz_uri, start_response)
