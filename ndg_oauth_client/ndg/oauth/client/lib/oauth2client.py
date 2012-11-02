@@ -17,9 +17,18 @@ from ndg.httpsclient import ssl_context_util
 
 log = logging.getLogger(__name__)
 
+
+class Oauth2ClientError(Exception):
+    '''Base class for OAuth 2.0 client exceptions'''
+    
+class Oauth2ClientConfigError(Oauth2ClientError):
+    '''OAuth 2.0 Client configuration error'''
+    
+    
 class Oauth2ClientConfig(object):
     """OAuth client configuration.
     """
+
     def __init__(self, client_id, authorization_endpoint, access_token_endpoint,
                  base_url_path, redirect_uri, **kw):
         """
@@ -103,23 +112,30 @@ class Oauth2ClientConfig(object):
             if part:
                 results.append(part)
         return '/'.join(results)
-    
+
+
 class Oauth2Client(object):
     """OAuth 2.0 client
     """
-    ACCESS_TOKEN_ENCODING = 'utf-8'
+    ACCESS_TOK_ENCODING = 'utf-8'
     RESPONSE_TYPE = 'code'
     SESSION_ID_KEY = 'oauth_client_instance_id'
+    HTTP_AUTHORIZATION_HEADER_FIELD = 'Authorization'
+    BEARER_TOK_ID = 'Bearer'
+    MAC_TOK_ID = 'MAC'
+    TOKEN_TYPES = (BEARER_TOK_ID, MAC_TOK_ID)
 
-    def __init__(self, client_config):
+    def __init__(self, client_config=None):
         """
         @type client_config: ndgoauthclient.lib.oauth2client.Oauth2ClientConfig
         @param client_config: OAuth client configuration
         """
         self.client_config = client_config
         self.access_token = None
-        for k, v in client_config.kw.iteritems():
-            setattr(self, k, v)
+        
+        if client_config is not None:
+            for k, v in client_config.kw.iteritems():
+                setattr(self, k, v)
 
     def call_with_access_token(self, scope, application_url, callback):
         """Calls a specified callable providing an access token.
@@ -157,14 +173,16 @@ class Oauth2Client(object):
             'scope': scope
             }
         self.state = uuid.uuid4().hex
-        log.debug("call_with_access_token authorization_endpoint: %s", self.client_config.authorization_endpoint)
+        log.debug("call_with_access_token authorization_endpoint: %s", 
+                  self.client_config.authorization_endpoint)
         log.debug("call_with_access_token parameters: %s", parameters)
-        url = self._make_combined_url(self.client_config.authorization_endpoint, parameters, self.state)
+        url = self._make_combined_url(self.client_config.authorization_endpoint, 
+                                      parameters, self.state)
         return (None, url)
 
     def call_with_access_token_redirected_back(self, request, callback,
                                                ssl_config):
-        """ Called after redirection following authorization process.
+        """Called after redirection following authorization process.
 
         @type request: webob.Request
         @param request: request object
@@ -191,13 +209,17 @@ class Oauth2Client(object):
         else:
             if state != self.state:
                 error = 'Inconsistent state'
-                error_description = 'State value incorrect implying request is not the result of legitimate OAuth redirection.'
+                error_description = (
+                    'State value incorrect implying request is not the result '
+                    'of legitimate OAuth redirection.')
+                
                 log.info("Erroneous request to redirect URL: %s - %s",
                          error, error_description)
                 return callback(None, error, error_description)
-            log.debug("Valid redirect from OAuth authorization server")
-            return self.request_access_token(code, request.application_url,
-                                             request, callback, ssl_config)
+            else:
+                log.debug("Valid redirect from OAuth authorization server")
+                return self.request_access_token(code, request.application_url,
+                                                 request, callback, ssl_config)
 
     def request_access_token(self, code, application_url, request, callback,
                              ssl_config):
@@ -222,10 +244,12 @@ class Oauth2Client(object):
         @return: result from callback
         """
         # Make POST request to obtain an access token.
+        redirect_uri = self.client_config.make_redirect_uri(application_url)
         parameters = {
             'grant_type': 'authorization_code',
             'code': code,
-            'redirect_uri': self.client_config.make_redirect_uri(application_url)}
+            'redirect_uri': redirect_uri
+        }
         
         # Put client_secret in request when defined. Most implementations
         # require this as part of the parameters, even though using an
@@ -270,7 +294,7 @@ class Oauth2Client(object):
             
             return callback(None, error, error_description)
         else:
-            self.access_token = access_token.encode(self.ACCESS_TOKEN_ENCODING)
+            self.access_token = access_token.encode(self.ACCESS_TOK_ENCODING)
             
             log.debug("Access token received: %s", self.access_token)
             
@@ -286,6 +310,56 @@ class Oauth2Client(object):
         @type request: webob.Request
         @param request: request object
         """
+
+    def request_resource(self, 
+                         resource_url, 
+                         ssl_config=None, 
+                         config=None, 
+                         data=None, 
+                         handlers=None):
+        '''Request a resource URL setting *bearer* token in Authorization
+        header
+
+        @type resource_url: str
+        @param resource_url: URL of resource to be requested
+
+        @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
+        @param ssl_config: SSL configuration, Nb. if config keyword is set then
+        this parameter will be *ignored*
+        
+        @type config: ndg.httpsclient.utils.Configuration
+        @param config: HTTP configuration settings.  Setting this keyword will
+        override any setting made for ssl_config      
+        @param data: HTTP POST data
+        @type data: str
+        @param handlers: list of custom urllib2 handlers to add to the request
+        @type handlers: iterable
+        @return: response from resource server
+        @rtype: urllib.addinfourl
+        '''
+        if self.access_token is None:
+            raise Oauth2ClientConfigError('No access token set for request to '
+                                          'resource %r' % resource_url)
+        
+        authorization_header = {
+            self.__class__.HTTP_AUTHORIZATION_HEADER_FIELD: '%s %s' % (
+                                                self.__class__.BEARER_TOK_ID, 
+                                                self.access_token),
+        }
+        
+        if config and ssl_config:
+            raise TypeError('Set either "config" or "ssl_config" keywords but '
+                            'not both')
+            
+        if config is None:
+            ssl_ctx = ssl_context_util.make_ssl_context_from_config(ssl_config)
+            config = httpsclient_utils.Configuration(
+                                                ssl_ctx,
+                                                headers=authorization_header)
+        
+        response = httpsclient_utils.fetch_stream_from_url(resource_url, config)
+        return response
+
 
     @staticmethod
     def _make_combined_url(base_url, parameters, state):

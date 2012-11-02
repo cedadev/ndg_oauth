@@ -34,7 +34,10 @@ class AuthorizationServer(object):
     Provides the core OAuth 2.0 server functions.
     """
     AUTHZ_HDR_ENV_KEYNAME = 'HTTP_AUTHORIZATION'
-     
+    BEARER_TOK_ID = 'Bearer'
+    MAC_TOK_ID = 'MAC'
+    TOKEN_TYPES = (BEARER_TOK_ID, MAC_TOK_ID)
+    
     def __init__(self, client_register_file, authorizer, client_authenticator,
                  access_token_generator, config):
         self.client_register = ClientRegister(client_register_file)
@@ -480,14 +483,13 @@ class AuthorizationServer(object):
         """
         Checks that a token in the request is valid. It would
         be called from a resource service that trusts this authorization
-        service. This is not part of the OAuth specification.
+        service. 
 
-        Request parameters
-
-        access_token
-              REQUIRED.  Bearer token
-        scope
-              OPTIONAL.  Scope 
+        Request parameters:
+              set in Authorization header (OAuth spec., Section 7.1 Access
+              Token Types
+        token type: Bearer or MAC
+        access token: access token to obtain access
 
         Response:
               application/json format:
@@ -512,28 +514,29 @@ class AuthorizationServer(object):
         """
         authorization_hdr = request.environ.get(
                                         self.__class__.AUTHZ_HDR_ENV_KEYNAME)
-        try:
-            token_type, access_token = authorization_hdr.split()
-            
-        except AttributeError:
-            log.error('No Authorization header present for request to %r', 
+        if authorization_hdr is None:
+            log.error('No Authorization header present for request to %r',
                       request.path_url)
-            error = 'invalid_request'
-            
-        except ValueError:
-            log.error('Unexpected Authorization header values %r for request '
-                      'to %r', authorization_hdr, request.path_url)
-            error = 'invalid_request'
-            
+            error = 'invalid_request'            
         else:
-            if token_type != 'Bearer':
-                log.error('Token type retrieved is %r, expecting "Bearer" type',
-                          token_type)
+            authorization_hdr_parts = authorization_hdr.split()
+            if len(authorization_hdr_parts) < 2:
+                log.error('Expecting at least two Authorization header '
+                          'elements for request to %r; '
+                          'header is: %r', request.path_url, authorization_hdr)
+                error = 'invalid_request'            
+                
+            token_type, access_token = authorization_hdr_parts[:2]
+            
+            # Currently only supports bearer type tokens
+            if token_type != self.__class__.BEARER_TOK_ID:
+                log.error('Token type retrieved is %r, expecting "Bearer" '
+                          'type for request to %r', token_type)
                 error = 'invalid_request'
             else:   
                 token, error = self.access_token_register.get_token(
                                                                 access_token, 
-                                                                None)
+                                                                scope)
 
         status = {'invalid_request': httplib.BAD_REQUEST,
                   'invalid_token': httplib.FORBIDDEN,

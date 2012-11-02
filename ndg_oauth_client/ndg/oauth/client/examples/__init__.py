@@ -7,12 +7,15 @@ __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 import urllib
+import cgi
 import logging
 from abc import ABCMeta, abstractmethod
 
-from ndg.oauth.client.lib import certificate_request
 from ndg.httpsclient import ssl_context_util 
 import ndg.httpsclient.utils as httpsclient_utils
+
+from ndg.oauth.client.lib import certificate_request
+from ndg.oauth.client.lib.oauth2client import Oauth2Client
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -48,6 +51,8 @@ class OAuthClientTestAppBase(object):
         self.ca_dir = local_conf.get('ca_dir')
         self.ssl_config = ssl_context_util.SSlContextConfig(client_key,
             client_cert, self.ca_cert_file, self.ca_dir, True)
+        
+        self.oauth2client = Oauth2Client(None)
 
     def __call__(self, environ, start_response):
         methodName = self.method.get(environ['PATH_INFO'], '').rstrip()
@@ -108,25 +113,23 @@ class BearerTokOAuthClientApp(OAuthClientTestAppBase):
     
     def get_resource(self, environ, start_response):
         response = [
-            "<h2>ndg_oauth WSGI Test Application: get secured resource</h2>"
+            "<h2>ndg_oauth WSGI Test Application: get secured resource</h2>",
+            "<p>Retrieved resource output:<p>"
         ]
 
-        parameters = {'access_token': environ[self.token_env_key]}
+        self.oauth2client.access_token = environ[self.token_env_key]
     
-        # Make POST request to obtain an access token.
-        log.debug("Resource request - parameters: %s", parameters)
-        data = urllib.urlencode(parameters)
-        
-        config = httpsclient_utils.Configuration(
-                ssl_context_util.make_ssl_context_from_config(self.ssl_config))
-        
-        resource_server_response = httpsclient_utils.fetch_stream_from_url(
-                                                           self.resource_url,
-                                                           config,
-                                                           data)
+        log.debug("Resource request - access_token: %s", 
+                  self.oauth2client.access_token)
+     
+        resource_server_response = self.oauth2client.request_resource(
+                                                    self.resource_url, 
+                                                    ssl_config=self.ssl_config)
 
         output = resource_server_response.read()
-        response.append('<p>%r</p>' % output)
+        esc_output = cgi.escape(output, True)
+        enc_output = esc_output.encode('ascii', 'xmlcharrefreplace')
+        response.append('<p>%r</p>' % enc_output)
 
         start_response('200 OK',
                        [('Content-type', 'text/html; charset=UTF-8'),
