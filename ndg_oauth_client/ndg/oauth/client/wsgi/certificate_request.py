@@ -31,7 +31,7 @@ class CertificateRequestMiddleware(object):
     RESOURCE_SERVER_URL_OPTION = 'resource_server_url'
     SESSION_KEY_OPTION = 'session_key'
     TOKEN_KEY_OPTION = 'oauth2_token_key'
-    propertyDefaults = {
+    PROPERTY_DEFAULTS = {
         CERTIFICATE_ENVIRON_KEY_OPTION: 'oauth2client.certificate',
         CERTIFICATE_SESSION_KEY_OPTION: 'oauth2client.certificate',
         CERTIFICATE_REQUEST_PARAMETER_OPTION: 'certificate_request',
@@ -144,7 +144,7 @@ class CertificateRequestMiddleware(object):
 
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
-        value = local_conf.get(prefix + key, cls.propertyDefaults.get(key,
+        value = local_conf.get(prefix + key, cls.PROPERTY_DEFAULTS.get(key,
                                                                       None))
         log.debug("CertificateRequestMiddleware configuration %s=%s", key,
                   value)

@@ -44,7 +44,7 @@ class AuthenticationFormMiddleware(object):
         '/login': 'login'
     }
     # Configuration option defaults
-    propertyDefaults = {
+    PROPERTY_DEFAULTS = {
         BASE_URL_PATH_OPTION: '/authentication',
         COMBINED_AUTHORIZATION_OPTION: 'True',
         RENDERER_CLASS_OPTION: 'ndg.oauth.server.lib.render.genshi_renderer.GenshiRenderer',
@@ -321,7 +321,7 @@ class AuthenticationFormMiddleware(object):
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
         value = local_conf.get(prefix + key,
-                               cls.propertyDefaults.get(key,None))
+                               cls.PROPERTY_DEFAULTS.get(key,None))
         log.debug("AuthenticationFormMiddleware configuration %s=%s",
                   key, value)
         return value

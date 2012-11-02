@@ -1,5 +1,5 @@
-"""Function to make a certificate request using a resource server secured
-using OAuth
+"""Function to make a request for an X.509 certificate from an Online 
+Certificate authority protected with OAuth
 """
 __author__ = "R B Wilkinson"
 __date__ = "20/03/12"
@@ -13,13 +13,13 @@ import json
 import logging
 import urllib
 
-import ndg.httpsclient.utils as httpsclient_utils
-import ndg.httpsclient.ssl_context_util as ssl_context_util
-import ndg.oauth.client.lib.openssl_cert as openssl_cert
+from ndg.oauth.client.lib import openssl_cert
+from ndg.oauth.client.lib.oauth2client import Oauth2Client
 
 log = logging.getLogger(__name__)
 
 DEFAULT_CERTIFICATE_REQUEST_PARAMETER = 'certificate_request'
+
 
 def request_certificate(token, 
                         resource_server_url, 
@@ -38,23 +38,25 @@ def request_certificate(token,
     request in the resource server request
     @type certificate_request_parameter: basestring
     """
-    parameters = {'access_token': token}
-    key_pair = openssl_cert.createKeyPair()
-    cert_req = openssl_cert.createCertReq('ignored-username', key_pair)
+    oauth_client = Oauth2Client(access_token=token)
+    
+    parameters = {}
+    key_pair = openssl_cert.create_keypair()
+    cert_req = openssl_cert.create_certreq('ignored-username', key_pair)
+    
     cert_req_param = (DEFAULT_CERTIFICATE_REQUEST_PARAMETER
                       if certificate_request_parameter is None
                       else certificate_request_parameter)
+    
     parameters[cert_req_param] = base64.b64encode(cert_req)
 
     # Make POST request to obtain an access token.
     log.debug("Resource request - parameters: %s", parameters)
     data = urllib.urlencode(parameters)
-    config = httpsclient_utils.Configuration(
-                    ssl_context_util.make_ssl_context_from_config(ssl_config))
     
-    response = httpsclient_utils.fetch_stream_from_url(resource_server_url,
-                                                       config,
-                                                       data)
+    response = oauth_client.request_resource(resource_server_url, 
+                                             ssl_config=ssl_config, 
+                                             data=data)
 
     # TODO: Refactor so that does or doesn't support JSON response - currently
     # works so that it will accept either

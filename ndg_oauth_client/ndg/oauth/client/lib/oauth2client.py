@@ -125,18 +125,18 @@ class Oauth2Client(object):
     MAC_TOK_ID = 'MAC'
     TOKEN_TYPES = (BEARER_TOK_ID, MAC_TOK_ID)
 
-    def __init__(self, client_config=None):
+    def __init__(self, client_config=None, access_token=None):
         """
         @type client_config: ndgoauthclient.lib.oauth2client.Oauth2ClientConfig
         @param client_config: OAuth client configuration
         """
         self.client_config = client_config
-        self.access_token = None
+        self.access_token = access_token
         
         if client_config is not None:
             for k, v in client_config.kw.iteritems():
                 setattr(self, k, v)
-
+        
     def call_with_access_token(self, scope, application_url, callback):
         """Calls a specified callable providing an access token.
         
@@ -357,7 +357,9 @@ class Oauth2Client(object):
                                                 ssl_ctx,
                                                 headers=authorization_header)
         
-        response = httpsclient_utils.fetch_stream_from_url(resource_url, config)
+        response = httpsclient_utils.fetch_stream_from_url(resource_url, 
+                                                           config,
+                                                           data=data)
         return response
 
 

@@ -64,7 +64,7 @@ class Oauth2ClientMiddleware(object):
     AUTHORIZATION_ENDPOINT_OPTION = 'authorization_endpoint'
     ACCESS_TOKEN_ENDPOINT_OPTION = 'access_token_endpoint'
     
-    propertyDefaults = {
+    PROPERTY_DEFAULTS = {
         ACCESS_TOKEN_TYPE_OPTION: 'bearer',
         AUTHENTICATION_COMPLETE_OPTION: '',
         AUTHENTICATION_TRIGGER_OPTION: AUTHENTICATION_TRIGGER_ALWAYS,
@@ -189,8 +189,8 @@ class Oauth2ClientMiddleware(object):
         else:
             # Start the OAuth2 transaction to get a token.
             log.debug("Starting OAuth2 protocol")
-            (token, redirect_url) = self._get_token(session,
-                                                    req.application_url)
+            token, redirect_url = self._get_token(session,
+                                                  req.application_url)
             if authenticate_before_delegating and redirect_url:
                 session[self.__class__.SESSION_CALL_CONTEXT_KEY
                                                             ] = original_environ
@@ -227,9 +227,9 @@ class Oauth2ClientMiddleware(object):
                             self._renderingConfiguration.merged_parameters(c))
             
             start_response(self._get_http_status_string(httplib.OK),
-               [('Content-type', 'text/html'),
-                ('Content-length', str(len(response)))
-                ])
+                           [('Content-type', 'text/html'),
+                            ('Content-length', str(len(response)))
+                            ])
             
             return [response]
 
@@ -321,13 +321,13 @@ class Oauth2ClientMiddleware(object):
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
         value = local_conf.get(prefix + key, 
-                               cls.propertyDefaults.get(key, None))
+                               cls.PROPERTY_DEFAULTS.get(key, None))
         log.debug("Oauth2ClientMiddleware configuration %s=%s", key, value)
         return value
 
     @staticmethod
     def _get_http_status_string(status):
-        return ("%d %s" % (status, httplib.responses[status]))
+        return "%d %s" % (status, httplib.responses[status])
 
     @classmethod
     def filter_app_factory(cls, app, app_conf, **local_conf):

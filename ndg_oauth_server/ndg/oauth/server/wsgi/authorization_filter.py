@@ -46,7 +46,7 @@ class Oauth2AuthorizationMiddleware(object):
         '/client_auth': 'client_auth'
     }
     # Configuration option defaults
-    propertyDefaults = {
+    PROPERTY_DEFAULTS = {
         BASE_URL_PATH_OPTION: 'client_authorization',
         RENDERER_CLASS_OPTION: \
             'ndg.oauth.server.lib.render.genshi_renderer.GenshiRenderer',
@@ -365,7 +365,7 @@ class Oauth2AuthorizationMiddleware(object):
 
     @classmethod
     def _get_config_option(cls, prefix, local_conf, key):
-        value = local_conf.get(prefix + key, cls.propertyDefaults.get(key, None))
+        value = local_conf.get(prefix + key, cls.PROPERTY_DEFAULTS.get(key, None))
         log.debug("Oauth2AuthorizationMiddleware configuration %s=%s", key, value)
         return value
 

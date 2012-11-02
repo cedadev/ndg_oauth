@@ -28,7 +28,7 @@ class OAuthClientTestAppBase(object):
     """
     __metaclass__ = ABCMeta
     
-    method = {
+    METHOD = {
         "/": 'default',
         "/token": 'tok',
         '/resource': 'get_resource'
@@ -55,9 +55,9 @@ class OAuthClientTestAppBase(object):
         self.oauth2client = Oauth2Client(None)
 
     def __call__(self, environ, start_response):
-        methodName = self.method.get(environ['PATH_INFO'], '').rstrip()
-        if methodName:
-            action = getattr(self, methodName)
+        method_name = self.METHOD.get(environ['PATH_INFO'], '').rstrip()
+        if method_name:
+            action = getattr(self, method_name)
             return action(environ, start_response)
         elif self.app is not None:
             return self.app(environ, start_response)
@@ -67,7 +67,7 @@ class OAuthClientTestAppBase(object):
             return "ndg_oauth WSGI Test Application: invalid URI"
 
     def default(self, environ, start_response):
-        log.debug('OAuthClientApp.default ...')
+        log.debug('%s.default ...', self.__class__.__name__)
         response = "<h2>ndg_oauth WSGI Test Application</h2>"
         start_response('200 OK', 
                        [('Content-type', 'text/html; charset=UTF-8'),
@@ -75,7 +75,7 @@ class OAuthClientTestAppBase(object):
         return [response]
 
     def tok(self, environ, start_response):
-        log.debug('OAuthClientApp.tok ...')
+        log.debug('%s.tok ...', self.__class__.__name__)
 
         tok = environ.get(self.__class__.DEFAULT_TOKEN_ENV_KEYNAME)
         response = ["<h2>ndg_oauth WSGI Test Application: Get Token"
@@ -145,8 +145,8 @@ class SlcsExampleOAuthClientApp(OAuthClientTestAppBase):
     DEFAULT_CERTIFICATE_REQUEST_PARAMETER = 'certificate_request'
     
     def __init__(self, app, app_conf, **local_conf):
-        super(BearerTokOAuthClientApp, self).__init__(app, app_conf, 
-                                                      **local_conf)
+        super(SlcsExampleOAuthClientApp, self).__init__(app, app_conf, 
+                                                        **local_conf)
         
         # OAuth client configuration
         self.certificate_request_parameter = local_conf.get(

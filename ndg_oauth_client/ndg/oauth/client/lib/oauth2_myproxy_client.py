@@ -27,8 +27,8 @@ class Oauth2MyProxyClient(Oauth2Client):
         @type request: webob.Request
         @param request: request object
         """
-        key_pair = openssl_cert.createKeyPair()
-        cert_req = openssl_cert.createCertReq('ignored-username', key_pair)
+        key_pair = openssl_cert.create_keypair()
+        cert_req = openssl_cert.create_certreq('ignored-username', key_pair)
         parameters[self.certificate_request_parameter] = base64.b64encode(cert_req)
 
         # Store the private key.

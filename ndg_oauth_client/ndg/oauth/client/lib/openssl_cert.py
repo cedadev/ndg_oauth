@@ -12,7 +12,7 @@ from OpenSSL import crypto
 PRIKEY_NBITS = 4096
 MESSAGE_DIGEST_TYPE = "md5"
 
-def createKeyPair(nBitsForKey=PRIKEY_NBITS):
+def create_keypair(nBitsForKey=PRIKEY_NBITS):
     """Generate key pair and return as PEM encoded string
     @type nBitsForKey: int
     @param nBitsForKey: number of bits for private key generation - 
@@ -25,7 +25,7 @@ def createKeyPair(nBitsForKey=PRIKEY_NBITS):
     
     return keyPair
         
-def createCertReq(CN, keyPair, messageDigest=MESSAGE_DIGEST_TYPE):
+def create_certreq(CN, keyPair, messageDigest=MESSAGE_DIGEST_TYPE):
     """Create a certificate request.
     
     @type CN: basestring
