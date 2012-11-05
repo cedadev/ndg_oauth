@@ -68,7 +68,18 @@ class OAuthClientTestAppBase(object):
 
     def default(self, environ, start_response):
         log.debug('%s.default ...', self.__class__.__name__)
-        response = "<h2>ndg_oauth WSGI Test Application</h2>"
+        response = """<h2>ndg_oauth WSGI Test Application</h2>
+        <ul>
+        <li><a href="/token">Display access token</a></li>
+        <li><a href="/resource">Get example resource using access token</a></li>
+        <ul>
+        <p>
+        <em>
+        Nb. clear out cookies to reset application and re-initiate delegation
+        process
+        </em>
+        </p>
+        """
         start_response('200 OK', 
                        [('Content-type', 'text/html; charset=UTF-8'),
                         ('Content-length', str(len(response)))])
@@ -114,7 +125,7 @@ class BearerTokOAuthClientApp(OAuthClientTestAppBase):
     def get_resource(self, environ, start_response):
         response = [
             "<h2>ndg_oauth WSGI Test Application: get secured resource</h2>",
-            "<p>Retrieved resource output:<p>"
+            "<p>Retrieved resource output from %r:<p>" % self.resource_url
         ]
 
         self.oauth2client.access_token = environ[self.token_env_key]

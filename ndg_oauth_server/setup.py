@@ -47,7 +47,7 @@ The examples should be used in conjunction with the ndg.oauth client package.
 
 setup(
     name =                      'ndg_oauth_server',
-    version =                   '0.3.1',
+    version =                   '0.4.0',
     description =               'OAuth 2.0 server',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
