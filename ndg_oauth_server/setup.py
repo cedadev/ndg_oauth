@@ -20,6 +20,20 @@ the use of X.509 certificates as tokens.  The latter has been added for a
 specialised use case to enable a SLCS (Short-lived Credential Service) to issue 
 delegated X.509-based credentials with OAuth.
 
+Releases
+========
+0.4.0
+-----
+ * Revised examples in ndg.oauth.client.examples.  bearer_tok uses bearer token
+ to secure access to a simple html page on a resource server, slcs is an example
+ protecting a short-lived credential service aka. Online Certificate Authority.
+ This requires the ContrailOnlineCAService package and should be used in 
+ conjunction with the equivalent example in the ndg_oauth_client example.
+ * Added discrete WSGI resource server middleware 
+ ndg.oauth.server.wsgi.resource_server.Oauth2ResourceServerMiddleware
+ * Includes support for bearer access token passed in Authorization header to
+ resource server.
+ 
 Prerequisites
 =============
 This has been developed and tested for Python 2.6 and 2.7.
@@ -35,14 +49,10 @@ Examples are contained in the examples/ sub-folder:
 bearer_tok/:
   This configures a simple test application that uses string based tokens.
 slcs/:
-  This is a more complex and specialised example that issues X.509 certificate-
-  based tokens as part of a Short-lived Credential Service.  The authorisation
-  server requires access to a specially configured MyProxyCA service (
-  http://grid.ncsa.illinois.edu/myproxy/ca/) configured with a custom PAM to 
-  allow issue of credentials. See: 
-  http://ndg-security.ceda.ac.uk/browser/trunk/MashMyData/pam_credential_translation
+  Bearer token example protecting a Short-Lived Credential Service or OnlineCA.
+  ContrailOnlineCAService package is needed for this example.
   
-The examples should be used in conjunction with the ndg.oauth client package.
+The examples should be used in conjunction with the ndg_oauth_client package.
 """
 
 setup(

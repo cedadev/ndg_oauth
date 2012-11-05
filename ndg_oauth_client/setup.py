@@ -20,16 +20,18 @@ the use of X.509 certificates as tokens.  The latter has been added to enable
 a SLCS (Short-lived Credential Service) to issue delegated X.509-based 
 credentials using OAuth.
 
-ndg.oauth.client.lib.oauth2client:Oauth2Client is a client that calls a
-specified callable with an access token obtained from a configured OAuth server.
-ndg.oauth.client.lib.oauth2_myproxy_client:Oauth2MyProxyClient extends this to
-handle key creation for obtaining X.509 certificates.
-
-The filter ndg.oauth.client.wsgi.oauth2_client:Oauth2ClientMiddleware uses
-Oauth2MyProxyClient and sets the obtained access token in the WSGI environ. The
-token contains the key/certificate pair so that it can be used by other WSGI
-applications or middleware to authenticate.
-
+Releases
+========
+0.4.0
+-----
+ * Revised examples in ndg.oauth.client.examples.  bearer_tok uses bearer token
+ to secure access to a simple html page on a resource server, slcs is an example
+ protecting a short-lived credential service aka Online Certificate Authority.
+ This requires the ContrailOnlineCAClient package and should be used in 
+ conjunction with the equivalent example in the ndg_oauth_server example.
+ * Revised ndg.oauth.client.lib.oauth2client.Oauth2Client to include support for
+ bearer access token passed in Authorization header to resource server.
+ 
 Prerequisites
 =============
 This has been developed and tested for Python 2.6 and 2.7.
@@ -45,15 +47,10 @@ Examples are contained in the examples/ sub-folder:
 bearer_tok/:
   This configures a simple test application that uses string based tokens.
 slcs/:
-  This is a more complex and specialised example that issues X.509 certificate-
-  based tokens as part of a Short-lived Credential Service.  The corresponding
-  authorisation server available from the ndg.oauth server package requires 
-  access to a specially configured MyProxyCA service (
-  http://grid.ncsa.illinois.edu/myproxy/ca/) configured with a custom PAM to 
-  allow issue of credentials. See: 
-  http://ndg-security.ceda.ac.uk/browser/trunk/MashMyData/pam_credential_translation
+  Bearer token example protecting a Short-Lived Credential Service or OnlineCA.
+  ContrailOnlineCAService package is needed for this example.
   
-The examples should be used in conjunction with the ndg.oauth server package.
+The examples should be used in conjunction with the ndg_oauth_server package.
 """
 
 setup(
