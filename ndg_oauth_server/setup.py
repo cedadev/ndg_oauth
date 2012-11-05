@@ -25,14 +25,15 @@ Releases
 0.4.0
 -----
  * Revised examples in ndg.oauth.client.examples.  bearer_tok uses bearer token
- to secure access to a simple html page on a resource server, slcs is an example
- protecting a short-lived credential service aka. Online Certificate Authority.
- This requires the ContrailOnlineCAService package and should be used in 
- conjunction with the equivalent example in the ndg_oauth_client example.
+   to secure access to a simple html page on a resource server, slcs is an 
+   example protecting a short-lived credential service aka. Online Certificate 
+   Authority.  This requires the ContrailOnlineCAService package and should be 
+   used in conjunction with the equivalent example in the ndg_oauth_client 
+   example.
  * Added discrete WSGI resource server middleware 
- ndg.oauth.server.wsgi.resource_server.Oauth2ResourceServerMiddleware
+   ndg.oauth.server.wsgi.resource_server.Oauth2ResourceServerMiddleware
  * Includes support for bearer access token passed in Authorization header to
- resource server.
+   resource server.
  
 Prerequisites
 =============
