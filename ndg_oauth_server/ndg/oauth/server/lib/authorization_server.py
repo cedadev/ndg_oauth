@@ -517,7 +517,8 @@ class AuthorizationServer(object):
         if authorization_hdr is None:
             log.error('No Authorization header present for request to %r',
                       request.path_url)
-            error = 'invalid_request'            
+            error = 'invalid_request'
+            token = None            
         else:
             authorization_hdr_parts = authorization_hdr.split()
             if len(authorization_hdr_parts) < 2:
