@@ -7,9 +7,9 @@ __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
-from ndg.oauth.server.lib.authenticate.client_authenticator_interface import ClientAuthenticatorInterface
+from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
 
-class NoopClientAuthenticator(ClientAuthenticatorInterface):
+class NoopAuthenticator(AuthenticatorInterface):
     """
     Client authenticator implementation that returns None implying that the
     client should not be authenticated.

@@ -247,7 +247,7 @@ class AuthenticationFormMiddleware(object):
         result = None
         if client:
             result = {'client_name': client.name,
-                      'client_id': client.client_id,
+                      'client_id': client.id,
                       'scope': scope}
         return result
 

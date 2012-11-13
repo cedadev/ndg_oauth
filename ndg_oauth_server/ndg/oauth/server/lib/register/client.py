@@ -18,9 +18,9 @@ class ClientRegistration(object):
     def __init__(self, name, client_id, client_secret, client_type,
                  redirect_uris, authentication_data):
         self.name = name
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.client_type = client_type
+        self.id = client_id
+        self.secret = client_secret
+        self.type = client_type
         if redirect_uris:
             self.redirect_uris = [r.strip() for r in redirect_uris.split(',')]
         else:

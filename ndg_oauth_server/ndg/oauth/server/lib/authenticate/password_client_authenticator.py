@@ -9,21 +9,25 @@ __revision__ = "$Id$"
 
 from base64 import b64decode
 
-from ndg.oauth.server.lib.authenticate.client_authenticator_interface import ClientAuthenticatorInterface
+from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
-from ndg.oauth.server.lib.register.client import ClientRegister
 
-class PasswordClientAuthenticator(ClientAuthenticatorInterface):
+class PasswordAuthenticator(AuthenticatorInterface):
     """
-    Client authenticator implementation that checks for a client id/secret
+    Authenticator implementation that checks for a client/resource id+secret
     combination, either in the HTTP Authorization header, or in the request
     parameters, according to the OAuth 2 RFC, section 2.3.1
 
     @todo implement protection against brute force attacks (MUST)
     """
+
+    def __init__(self, typ, register):
+        AuthenticatorInterface.__init__(self, typ)
+        self._register = register
+
     def authenticate(self, request):
         """
-        Checks for client_id/client_secret pair in Authorization header, or else
+        Checks for id/secret pair in Authorization header, or else
         POSTed request parameters.
         @type request: webob.Request
         @param request: HTTP request object
@@ -41,9 +45,9 @@ class PasswordClientAuthenticator(ClientAuthenticatorInterface):
             secret = request.POST['client_secret']
 
         if not cid or not secret:
-            raise OauthException('invalid_client', 'No client password authentication supplied')
+            raise OauthException('invalid_%s'%self.typ, 'No %s password authentication supplied'%self.typ)
 
-        for client_authorization in ClientRegister.register.itervalues():
-            if client_authorization.client_id == cid and client_authorization.client_secret == secret:
-                return client_authorization.client_id
-        raise OauthException('invalid_client', ('Client access denied: %s' % cid))
+        for authorization in self._register.register.itervalues():
+            if authorization.id == cid and authorization.secret == secret:
+                return authorization.id
+        raise OauthException('invalid_%s'%self.typ, ('%s access denied: %s' % (cid, self.typ)))

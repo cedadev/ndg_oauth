@@ -14,6 +14,14 @@ class AuthenticatorInterface(object):
     """
     __metaclass__ = ABCMeta
 
+    def __init__(self, typ):
+        """Initialises the authenticator
+        @type typ: str
+        @param typ: type of authenticator (usually 'client' or 'resource')
+        """
+        self.typ = typ
+        object.__init__(self)
+
     @abstractmethod
     def authenticate(self, params):
         """Authenticates a user.

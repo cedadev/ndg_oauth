@@ -23,16 +23,18 @@ from ndg.oauth.server.lib.access_token.bearer_token_generator import \
 from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator \
     import MyProxyCertTokenGenerator
 from ndg.oauth.server.lib.authenticate.certificate_client_authenticator \
-    import CertificateClientAuthenticator
+    import CertificateAuthenticator
 from ndg.oauth.server.lib.authenticate.noop_client_authenticator import \
-    NoopClientAuthenticator
+    NoopAuthenticator
 from ndg.oauth.server.lib.authenticate.password_client_authenticator \
-    import PasswordClientAuthenticator
+    import PasswordAuthenticator
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
 from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import \
     AuthorizerStoringIdentifier
 from ndg.oauth.server.lib.resource_request.myproxy_cert_request import \
     MyproxyCertRequest
+from ndg.oauth.server.lib.register.client import ClientRegister
+from ndg.oauth.server.lib.register.resource import ResourceRegister
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +65,8 @@ class Oauth2ServerMiddleware(object):
     CLIENT_AUTHORIZATION_URL_OPTION = 'client_authorization_url'
     CLIENT_AUTHORIZATIONS_KEY_OPTION = 'client_authorizations_key'
     CLIENT_REGISTER_OPTION = 'client_register'
+    RESOURCE_AUTHENTICATION_METHOD_OPTION = 'resource_authentication_method'
+    RESOURCE_REGISTER_OPTION = 'resource_register'
     MYPROXY_CLIENT_KEY_OPTION = 'myproxy_client_key'
     MYPROXY_GLOBAL_PASSWORD_OPTION = 'myproxy_global_password'
     USER_IDENTIFIER_KEY_OPTION = 'user_identifier_key'
@@ -81,6 +85,7 @@ class Oauth2ServerMiddleware(object):
         CLIENT_AUTHENTICATION_METHOD_OPTION: 'certificate',
         CLIENT_AUTHORIZATION_URL_OPTION: '/client_authorization/authorize',
         CLIENT_AUTHORIZATIONS_KEY_OPTION: 'client_authorizations',
+        RESOURCE_AUTHENTICATION_METHOD_OPTION: 'none',
         MYPROXY_CLIENT_KEY_OPTION: \
         'myproxy.server.wsgi.middleware.MyProxyClientMiddleware.myProxyClient',
         USER_IDENTIFIER_KEY_OPTION: 'REMOTE_USER'
@@ -146,22 +151,19 @@ class Oauth2ServerMiddleware(object):
 
         # Determine client authentication type. A 'none' options is allowed so
         # that development/testing can be performed without running on Apache.
-        if self.client_authentication_method == 'certificate':
-            client_authenticator = CertificateClientAuthenticator()
-            
-        elif self.client_authentication_method == 'none':
-            client_authenticator = NoopClientAuthenticator()
-            
-        elif self.client_authentication_method == 'password':
-            client_authenticator = PasswordClientAuthenticator()
-            
-        else:
-            raise ValueError("Invalid configuration value %s for %s" %
-                             (self.client_authentication_method,
-                              self.CLIENT_AUTHENTICATION_METHOD_OPTION))
+        client_register = ClientRegister(self.client_register_file)
+        client_authenticator = self._get_authenticator(
+            self.client_authentication_method, client_register,
+            'client', self.CLIENT_AUTHENTICATION_METHOD_OPTION)
+        # same for resource authentication type.
+        resource_register = ResourceRegister(self.resource_register_file)
+        resource_authenticator = self._get_authenticator(
+            self.resource_authentication_method, resource_register,
+            'resource', self.RESOURCE_AUTHENTICATION_METHOD_OPTION)
 
         self._authorizationServer = AuthorizationServer(
-            self.client_register_file, authorizer, client_authenticator,
+            client_register, authorizer, client_authenticator,
+            resource_register, resource_authenticator,
             access_token_generator, conf)
 
         self._myproxy_cert_request = MyproxyCertRequest(
@@ -169,6 +171,21 @@ class Oauth2ServerMiddleware(object):
             myproxy_client_env_key=self.myproxy_client_env_key,
             myproxy_global_password=self.myproxy_global_password,
             user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
+
+    def _get_authenticator(self, name, register, typ, option_name):
+        """Returns new authenticator by name"""
+        if name == 'certificate':
+            return CertificateAuthenticator(typ, register)
+            
+        elif name == 'password':
+            return PasswordAuthenticator(typ, register)
+            
+        elif name == 'none':
+            return NoopAuthenticator(typ)
+            
+        else:
+            raise ValueError("Invalid configuration value %s for %s" %
+                             (name, option_name))
 
     def __call__(self, environ, start_response):
         """
@@ -498,6 +515,10 @@ class Oauth2ServerMiddleware(object):
                                 conf, cls.CLIENT_AUTHORIZATIONS_KEY_OPTION)
         self.client_register_file = cls._get_config_option(
                                 conf, cls.CLIENT_REGISTER_OPTION)
+        self.resource_authentication_method = cls._get_config_option(
+                                conf, cls.RESOURCE_AUTHENTICATION_METHOD_OPTION)
+        self.resource_register_file = cls._get_config_option(
+                                conf, cls.RESOURCE_REGISTER_OPTION)
         self.myproxy_client_env_key = cls._get_config_option(
                                 conf, cls.MYPROXY_CLIENT_KEY_OPTION)
         self.myproxy_global_password = cls._get_config_option(

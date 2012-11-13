@@ -22,7 +22,6 @@ from ndg.oauth.server.lib.oauth.authorize import (AuthorizeRequest,
                                                   AuthorizeResponse)
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
 from ndg.oauth.server.lib.register.access_token import AccessTokenRegister
-from ndg.oauth.server.lib.register.client import ClientRegister
 from ndg.oauth.server.lib.register.authorization_grant import \
                                                     AuthorizationGrantRegister
 
@@ -38,11 +37,14 @@ class AuthorizationServer(object):
     MAC_TOK_ID = 'MAC'
     TOKEN_TYPES = (BEARER_TOK_ID, MAC_TOK_ID)
     
-    def __init__(self, client_register_file, authorizer, client_authenticator,
+    def __init__(self, client_register, authorizer, client_authenticator,
+                 resource_register, resource_authenticator,
                  access_token_generator, config):
-        self.client_register = ClientRegister(client_register_file)
+        self.client_register = client_register
         self.authorizer = authorizer
         self.client_authenticator = client_authenticator
+        self.resource_register = resource_register
+        self.resource_authenticator = resource_authenticator
         self.access_token_generator = access_token_generator
         self.access_token_register = AccessTokenRegister(config)
         self.authorization_grant_register = AuthorizationGrantRegister(config)
@@ -458,6 +460,15 @@ class AuthorizationServer(object):
                  )
         """
         params = request.params
+
+        # Check that the client is authenticated as a registered client.
+        resource_id = self.resource_authenticator.authenticate(request)
+        if resource_id is None:
+            log.warn('Resource authentication not performed')
+        else:
+            log.debug("Resource id: %s", resource_id)
+
+        # Retrieve access token
         if 'access_token' not in params:
             error = 'invalid_request'
         else:
@@ -466,9 +477,9 @@ class AuthorizationServer(object):
                 required_scope = scope
             else:
                 required_scope = params.get('scope', None)
-            error = self.access_token_register.get_token(access_token,
-                                                         required_scope)[-1]
-
+            token, error = self.access_token_register.get_token(access_token,
+                                                                required_scope)
+        # Formulate response
         status = {'invalid_request': httplib.BAD_REQUEST,
                   'invalid_token': httplib.FORBIDDEN,
                   None: httplib.OK}.get(error, httplib.BAD_REQUEST)
@@ -476,6 +487,9 @@ class AuthorizationServer(object):
         content_dict = {'status': status}
         if error:
             content_dict['error'] = error
+        else:
+            # TODO only get additional data when resource is allowed to
+            content_dict['user_name'] = token.grant.additional_data.get('user_identifier')
         content = json.dumps(content_dict)
         return (content, status, error)
 

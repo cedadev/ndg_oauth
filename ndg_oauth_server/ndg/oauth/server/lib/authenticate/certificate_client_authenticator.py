@@ -7,18 +7,22 @@ __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
-from ndg.oauth.server.lib.authenticate.client_authenticator_interface import ClientAuthenticatorInterface
+from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
-from ndg.oauth.server.lib.register.client import ClientRegister
 
-class CertificateClientAuthenticator(ClientAuthenticatorInterface):
+class CertificateAuthenticator(AuthenticatorInterface):
     CERT_DN_ENVIRON_KEY = 'SSL_CLIENT_S_DN'
     """
     Client authenticator implementation that checks for a SSL certificate DN
-    in the environ and compares this with that registered for the client.
+    in the environ and compares this with that registered for the client/resource/....
     SSL certificate authentication must be configured, e.g., in an Apache server
     hosting the application.
     """
+
+    def __init__(self, typ, register):
+        AuthenticatorInterface.__init__(self, typ)
+        self._register = register
+
     def authenticate(self, request):
         """
         Checks for an SSL certificate distinguished name in the environ and if
@@ -34,9 +38,9 @@ class CertificateClientAuthenticator(ClientAuthenticatorInterface):
         """
         dn = request.environ.get(self.CERT_DN_ENVIRON_KEY)
         if not dn:
-            raise OauthException('invalid_client', 'No certificate DN found.')
+            raise OauthException('invalid_%s'%self.typ, 'No certificate DN found.')
 
-        for client_authorization in ClientRegister.register.itervalues():
-            if client_authorization.authentication_data == dn:
-                return client_authorization.client_id
-        raise OauthException('invalid_client', ('Certificate DN does not match that for any registered client: %s' % dn))
+        for authorization in self._register.register.itervalues():
+            if authorization.authentication_data == dn:
+                return authorization.id
+        raise OauthException('invalid_%s'%self.typ, ('Certificate DN does not match that for any registered %s: %s' % (self.typ, dn)))
