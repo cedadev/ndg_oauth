@@ -26,6 +26,8 @@ from ndg.oauth.server.lib.authenticate.certificate_client_authenticator \
     import CertificateClientAuthenticator
 from ndg.oauth.server.lib.authenticate.noop_client_authenticator import \
     NoopClientAuthenticator
+from ndg.oauth.server.lib.authenticate.password_client_authenticator \
+    import PasswordClientAuthenticator
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
 from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import \
     AuthorizerStoringIdentifier
@@ -149,6 +151,9 @@ class Oauth2ServerMiddleware(object):
             
         elif self.client_authentication_method == 'none':
             client_authenticator = NoopClientAuthenticator()
+            
+        elif self.client_authentication_method == 'password':
+            client_authenticator = PasswordClientAuthenticator()
             
         else:
             raise ValueError("Invalid configuration value %s for %s" %

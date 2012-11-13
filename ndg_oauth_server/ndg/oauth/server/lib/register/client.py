@@ -15,10 +15,11 @@ class ClientRegistration(object):
     """
     An entry in the client register.
     """
-    def __init__(self, name, client_id, client_type, redirect_uris, 
-                 authentication_data):
+    def __init__(self, name, client_id, client_secret, client_type,
+                 redirect_uris, authentication_data):
         self.name = name
         self.client_id = client_id
+        self.client_secret = client_secret
         self.client_type = client_type
         if redirect_uris:
             self.redirect_uris = [r.strip() for r in redirect_uris.split(',')]
@@ -43,9 +44,13 @@ class ClientRegister(object):
     def _create_client(self, config, client_key, prefix):
         client_section_name = prefix + ':' + client_key
         client_id = config.get(client_section_name, 'id')
+        client_secret = None
+        if config.has_option(client_section_name, 'secret'):
+            client_secret = config.get(client_section_name, 'secret')
         client_registration = ClientRegistration(
             config.get(client_section_name, 'name'),
-            config.get(client_section_name, 'id'),
+            client_id,
+            client_secret,
             config.get(client_section_name, 'type'),
             config.get(client_section_name, 'redirect_uris'),
             config.get(client_section_name, 'authentication_data'))
