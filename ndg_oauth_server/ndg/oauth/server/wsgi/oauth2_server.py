@@ -254,15 +254,17 @@ class Oauth2ServerMiddleware(object):
                                                             req, 
                                                             client_authorized)
         if error:
-            self._error_response(error, error_description, start_response)
+            return self._error_response(error, 
+                                        error_description, 
+                                        start_response)
         else:
             return self._redirect(redirect_uri, start_response)
 
     def _error_response(self, error, error_description, start_response):
         """Returns and error response.
         """
-        response = ("%s: %s" %(error, error_description)).encode('ascii',
-                                                                 'ignore')
+        response = ("%s: %s" % (error, error_description)).encode('ascii',
+                                                                  'ignore')
         log.error("Returning error: %s - %s", error, error_description)
         start_response(self._get_http_status_string(httplib.BAD_REQUEST),
                        [('Content-type', 'text/plain'),
