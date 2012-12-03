@@ -34,12 +34,13 @@ class ClientRegister(object):
     """
     register = {}
     def __init__(self, config_file):
-        config = SafeConfigParser()
-        config.read(config_file)
-        client_keys = config.get('client_register', 'clients').strip()
-        if client_keys:
-            for client_key in [k.strip() for k in client_keys.split(',')]:
-                self._create_client(config, client_key, 'client')
+        if config_file is not None and config_file != '':
+            config = SafeConfigParser()
+            config.read(config_file)
+            client_keys = config.get('client_register', 'clients').strip()
+            if client_keys:
+                for client_key in [k.strip() for k in client_keys.split(',')]:
+                    self._create_client(config, client_key, 'client')
 
     def _create_client(self, config, client_key, prefix):
         client_section_name = prefix + ':' + client_key

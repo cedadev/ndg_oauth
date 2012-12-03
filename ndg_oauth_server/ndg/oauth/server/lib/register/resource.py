@@ -29,12 +29,13 @@ class ResourceRegister(object):
     """
     register = {}
     def __init__(self, config_file):
-        config = SafeConfigParser()
-        config.read(config_file)
-        resource_keys = config.get('resource_register', 'resources').strip()
-        if resource_keys:
-            for resource_key in [k.strip() for k in resource_keys.split(',')]:
-                self._create_resource(config, resource_key, 'resource')
+        if config_file is not None and config_file != '':
+            config = SafeConfigParser()
+            config.read(config_file)
+            resource_keys = config.get('resource_register', 'resources').strip()
+            if resource_keys:
+                for resource_key in [k.strip() for k in resource_keys.split(',')]:
+                    self._create_resource(config, resource_key, 'resource')
 
     def _create_resource(self, config, resource_key, prefix):
         resource_section_name = prefix + ':' + resource_key
