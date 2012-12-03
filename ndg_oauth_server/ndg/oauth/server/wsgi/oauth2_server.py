@@ -22,11 +22,11 @@ from ndg.oauth.server.lib.access_token.bearer_token_generator import \
     BearerTokenGenerator
 from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator \
     import MyProxyCertTokenGenerator
-from ndg.oauth.server.lib.authenticate.certificate_client_authenticator \
+from ndg.oauth.server.lib.authenticate.certificate_authenticator \
     import CertificateAuthenticator
-from ndg.oauth.server.lib.authenticate.noop_client_authenticator import \
+from ndg.oauth.server.lib.authenticate.noop_authenticator import \
     NoopAuthenticator
-from ndg.oauth.server.lib.authenticate.password_client_authenticator \
+from ndg.oauth.server.lib.authenticate.password_authenticator \
     import PasswordAuthenticator
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
 from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import \

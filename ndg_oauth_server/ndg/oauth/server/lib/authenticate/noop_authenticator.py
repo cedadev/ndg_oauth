@@ -11,13 +11,13 @@ from ndg.oauth.server.lib.authenticate.authenticator_interface import Authentica
 
 class NoopAuthenticator(AuthenticatorInterface):
     """
-    Client authenticator implementation that returns None implying that the
-    client should not be authenticated.
+    Authenticator implementation that returns None implying that the
+    client/resource should not be authenticated.
     """
     def authenticate(self, request):
         """
         Authenticator that always returns None
-        Returning None implies client id is not to be checked against grant.
+        Returning None implies client/resource id is not to be checked against grant.
 
         @type request: webob.Request
         @param request: HTTP request object

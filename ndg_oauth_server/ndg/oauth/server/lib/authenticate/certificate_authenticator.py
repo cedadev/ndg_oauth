@@ -31,8 +31,8 @@ class CertificateAuthenticator(AuthenticatorInterface):
         @param request: HTTP request object
 
         @rtype: str
-        @return: ID of authenticated client, or None if authentication is not to
-        be performed.
+        @return: ID of authenticated client/resource, or None if authentication
+        is not to be performed.
         
         Raise OauthException if authentication fails.
         """

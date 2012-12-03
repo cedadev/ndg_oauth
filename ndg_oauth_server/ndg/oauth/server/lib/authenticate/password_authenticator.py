@@ -33,7 +33,7 @@ class PasswordAuthenticator(AuthenticatorInterface):
         @param request: HTTP request object
 
         @rtype: str
-        @return: id of authenticated client
+        @return: id of authenticated client/resource
         
         Raise OauthException if authentication fails.
         """
