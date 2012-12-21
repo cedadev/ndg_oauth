@@ -431,6 +431,9 @@ class AuthorizationServer(object):
         be called from a resource service that trusts this authorization
         service. This is not part of the OAuth specification.
 
+        Only POST parameters are accepted in the request, to avoid logging
+        and caching of access tokens.
+
         Request parameters
 
         access_token
@@ -442,6 +445,8 @@ class AuthorizationServer(object):
               application/json format:
         status
               HTTP status indicating the access control decision
+        user_name
+              user identifier corresponding to access token
         error
               error as described in
               http://tools.ietf.org/html/draft-ietf-oauth-v2-22#section-5.2
@@ -459,7 +464,8 @@ class AuthorizationServer(object):
                      error description
                  )
         """
-        params = request.params
+        # only allow POST params to avoid logging and caching of access tokens
+        params = request.POST
 
         # Check that the client is authenticated as a registered client.
         resource_id = self.resource_authenticator.authenticate(request)
