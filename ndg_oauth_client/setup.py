@@ -22,6 +22,13 @@ credentials using OAuth.
 
 Releases
 ========
+0.5.0
+-----
+New pseudo release to keep in sync with ndg_oauth_server package versioning. No
+changes from 0.4.0.  New ndg_oauth_server 0.5.0 contains enhancements from W
+Engen including support for password based authentication for clients. See
+ndg_oauth_server package for details.
+
 0.4.0
 -----
  * Revised examples in ndg.oauth.client.examples.  bearer_tok uses bearer token
@@ -56,7 +63,7 @@ The examples should be used in conjunction with the ndg_oauth_server package.
 
 setup(
     name =                      'ndg_oauth_client',
-    version =                   '0.4.0',
+    version =                   '0.5.0',
     description =               'OAuth 2.0 client',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
