@@ -9,6 +9,7 @@ __revision__ = "$Id$"
 
 from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
 
+
 class NoopAuthenticator(AuthenticatorInterface):
     """
     Authenticator implementation that returns None implying that the
@@ -26,3 +27,4 @@ class NoopAuthenticator(AuthenticatorInterface):
         @return: None
         """
         return None
+

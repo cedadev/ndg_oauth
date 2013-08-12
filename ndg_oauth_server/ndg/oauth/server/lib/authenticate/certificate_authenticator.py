@@ -10,6 +10,7 @@ __revision__ = "$Id$"
 from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
 
+
 class CertificateAuthenticator(AuthenticatorInterface):
     CERT_DN_ENVIRON_KEY = 'SSL_CLIENT_S_DN'
     """
@@ -38,9 +39,12 @@ class CertificateAuthenticator(AuthenticatorInterface):
         """
         dn = request.environ.get(self.CERT_DN_ENVIRON_KEY)
         if not dn:
-            raise OauthException('invalid_%s'%self.typ, 'No certificate DN found.')
+            raise OauthException('invalid_%s' % self.typ, 'No certificate DN found.')
 
         for authorization in self._register.register.itervalues():
             if authorization.authentication_data == dn:
                 return authorization.id
-        raise OauthException('invalid_%s'%self.typ, ('Certificate DN does not match that for any registered %s: %s' % (self.typ, dn)))
+
+        raise OauthException('invalid_%s' % self.typ,
+			     'Certificate DN does not match that for any registered %s: %s' % (self.typ, dn))
+

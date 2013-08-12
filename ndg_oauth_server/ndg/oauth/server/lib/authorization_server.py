@@ -258,7 +258,6 @@ class AuthorizationServer(object):
 
         return ''.join(url_parts)
 
-
     def access_token(self, request):
         """
         Handles a request for an access token.
@@ -340,6 +339,7 @@ class AuthorizationServer(object):
                 token_request, client_id, self.access_token_register,
                 self.access_token_generator, self.authorization_grant_register,
                 request)
+
         except OauthException, exc:
             return (self._error_access_token_response(exc.error, 
                                                       exc.error_description), 
@@ -376,9 +376,12 @@ class AuthorizationServer(object):
         @return JSON formatted response
         """
         log.error("Responding with error: %s - %s", error, error_description)
+
         error_dict = {'error': error}
+
         if error_description:
             error_dict['error_description'] = error_description
+
         error_content = json.dumps(error_dict)
         return error_content
 
@@ -402,14 +405,13 @@ class AuthorizationServer(object):
         @type post_only: bool
         @param post_only: True if the HTTP method must be POST, otherwise False
 
-
         """
         if request.scheme != 'https':
             raise OauthException('invalid_request', 
                                  'Transport layer security must be used for '
                                  'this request.')
 
-        if post_only and (request.method != 'POST'):
+        if post_only and request.method != 'POST':
             raise OauthException('invalid_request', 
                                  'HTTP POST method must be used for this '
                                  'request.')
@@ -419,11 +421,11 @@ class AuthorizationServer(object):
         for key in params.iterkeys():
             count = param_counts.get(key, 0)
             param_counts[key] = count + 1
+
         for key, count in param_counts.iteritems():
             if count > 1:
                 raise OauthException('invalid_request', 
                                      'Parameter "%s" is repeated.' % key)
-        return
 
     def check_token(self, request, scope=None):
         """
@@ -496,6 +498,7 @@ class AuthorizationServer(object):
         else:
             # TODO only get additional data when resource is allowed to
             content_dict['user_name'] = token.grant.additional_data.get('user_identifier')
+
         content = json.dumps(content_dict)
         return (content, status, error)
 
@@ -584,3 +587,4 @@ class AuthorizationServer(object):
                 return 'unauthorized_client', error_description
             
         return None, None
+

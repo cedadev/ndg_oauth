@@ -155,6 +155,7 @@ class Oauth2ServerMiddleware(object):
         client_authenticator = self._get_authenticator(
             self.client_authentication_method, client_register,
             'client', self.CLIENT_AUTHENTICATION_METHOD_OPTION)
+
         # same for resource authentication type.
         resource_register = ResourceRegister(self.resource_register_file)
         resource_authenticator = self._get_authenticator(
@@ -213,14 +214,17 @@ class Oauth2ServerMiddleware(object):
         actionPath = None
         if req.path_info.startswith(self.base_path):
             actionPath = req.path_info[len(self.base_path):]
+
         methodName = self.__class__.method.get(actionPath, '')
         if methodName:
             log.debug("Method: %s" % methodName)
             action = getattr(self, methodName)
             return action(req, start_response)
+
         elif self._app is not None:
             log.debug("Delegating to lower filter/application.")
             return self._app(environ, start_response)
+
         else:
             response = "OAuth 2.0 Server - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
@@ -241,6 +245,7 @@ class Oauth2ServerMiddleware(object):
         @return: WSGI response
         """
         log.debug("authorize called")
+
         # Stop immediately if the client is not registered.
         (error, error_description
                         ) = self._authorizationServer.is_registered_client(req)
@@ -543,3 +548,4 @@ class Oauth2ServerMiddleware(object):
     @classmethod
     def app_factory(cls, app_conf, **local_conf):
         return cls(None, app_conf, **local_conf)
+

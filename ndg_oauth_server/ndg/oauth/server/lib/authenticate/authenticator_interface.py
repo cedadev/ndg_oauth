@@ -8,6 +8,8 @@ __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
 from abc import ABCMeta, abstractmethod
+
+
 class AuthenticatorInterface(object):
     """
     Interface for user authentication.
@@ -20,7 +22,7 @@ class AuthenticatorInterface(object):
         @param typ: type of authenticator (usually 'client' or 'resource')
         """
         self.typ = typ
-        object.__init__(self)
+        super(AuthenticatorInterface, self).__init__()
 
     @abstractmethod
     def authenticate(self, params):

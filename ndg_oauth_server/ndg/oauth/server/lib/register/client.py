@@ -33,11 +33,17 @@ class ClientRegister(object):
     Client reqister read from a configuration file
     """
     register = {}
-    def __init__(self, config_file):
-        if config_file is not None and config_file != '':
+    def __init__(self, config_file=None):
+	"""
+	@type config_file: basestring
+	@param config_file: configuration file to be read.  If the file is
+	None or null, no read is attempted.
+	"""
+        if config_file:
             config = SafeConfigParser()
             config.read(config_file)
             client_keys = config.get('client_register', 'clients').strip()
+
             if client_keys:
                 for client_key in [k.strip() for k in client_keys.split(',')]:
                     self._create_client(config, client_key, 'client')
@@ -46,8 +52,10 @@ class ClientRegister(object):
         client_section_name = prefix + ':' + client_key
         client_id = config.get(client_section_name, 'id')
         client_secret = None
+
         if config.has_option(client_section_name, 'secret'):
             client_secret = config.get(client_section_name, 'secret')
+
         client_registration = ClientRegistration(
             config.get(client_section_name, 'name'),
             client_id,
@@ -55,6 +63,7 @@ class ClientRegister(object):
             config.get(client_section_name, 'type'),
             config.get(client_section_name, 'redirect_uris'),
             config.get(client_section_name, 'authentication_data'))
+
         self.register[client_id] = client_registration
 
     def is_registered_client(self, client_id):
@@ -71,12 +80,16 @@ class ClientRegister(object):
         # Check if client ID is registered.
         if client_id not in self.register:
             return ('Client of id "%s" is not registered.' % client_id)
+
         client = self.register[client_id]
 
         if redirect_uri is None:
             if len(client.redirect_uris) != 1:
                 return ('No redirect URI is registered for the client or '
                         'specified in the request.')
+
         if redirect_uri is not None and redirect_uri not in client.redirect_uris:
             return 'Redirect URI is not registered.'
+
         return None
+

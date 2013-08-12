@@ -1,6 +1,6 @@
 """OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
 """
-__author__ = "R B Wilkinson"
+__author__ = "W V Engen"
 __date__ = "13/11/12"
 __copyright__ = "(C) 2012 FOM / Nikhef"
 __license__ = "BSD - see LICENSE file in top-level directory"
@@ -28,11 +28,12 @@ class ResourceRegister(object):
     Resource reqister read from a configuration file
     """
     register = {}
-    def __init__(self, config_file):
-        if config_file is not None and config_file != '':
+    def __init__(self, config_file=None):
+        if config_file:
             config = SafeConfigParser()
             config.read(config_file)
             resource_keys = config.get('resource_register', 'resources').strip()
+
             if resource_keys:
                 for resource_key in [k.strip() for k in resource_keys.split(',')]:
                     self._create_resource(config, resource_key, 'resource')
@@ -41,11 +42,14 @@ class ResourceRegister(object):
         resource_section_name = prefix + ':' + resource_key
         resource_id = config.get(resource_section_name, 'id')
         resource_secret = None
+
         if config.has_option(resource_section_name, 'secret'):
             resource_secret = config.get(resource_section_name, 'secret')
+
         resource_authentication_data = None
         if config.has_option(resource_section_name, 'authentication_data'):
             resource_authentication_data = config.get(resource_section_name, 'authentication_data')
+
         resource_registration = ResourceRegistration(
             config.get(resource_section_name, 'name'),
             resource_id,
@@ -58,5 +62,6 @@ class ResourceRegister(object):
         """
         if resource_id not in self.register:
             return ('Resource of id "%s" is not registered.' % resource_id)
+
         return None
 

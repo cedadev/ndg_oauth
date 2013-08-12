@@ -12,6 +12,7 @@ from base64 import b64decode
 from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
 
+
 class PasswordAuthenticator(AuthenticatorInterface):
     """
     Authenticator implementation that checks for a client/resource id+secret
@@ -22,7 +23,7 @@ class PasswordAuthenticator(AuthenticatorInterface):
     """
 
     def __init__(self, typ, register):
-        AuthenticatorInterface.__init__(self, typ)
+        super(AuthenticatorInterfacei, self).__init__(typ)
         self._register = register
 
     def authenticate(self, request):
@@ -40,14 +41,19 @@ class PasswordAuthenticator(AuthenticatorInterface):
         cid = secret = None
         if 'Authorization' in request.headers and request.headers['Authorization'].startswith('Basic'):
             cid, secret = b64decode(request.headers['Authorization'][6:]).split(':',1)
+
         elif 'client_id' in request.POST and 'client_secret' in request.POST:
             cid = request.POST['client_id']
             secret = request.POST['client_secret']
 
         if not cid or not secret:
-            raise OauthException('invalid_%s'%self.typ, 'No %s password authentication supplied'%self.typ)
+            raise OauthException('invalid_%s' % self.typ,
+				 'No %s password authentication supplied' % self.typ)
 
         for authorization in self._register.register.itervalues():
             if authorization.id == cid and authorization.secret == secret:
                 return authorization.id
-        raise OauthException('invalid_%s'%self.typ, ('%s access denied: %s' % (cid, self.typ)))
+
+        raise OauthException('invalid_%s' % self.typ,
+			     '%s access denied: %s' % (cid, self.typ))
+
