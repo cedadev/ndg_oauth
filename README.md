@@ -10,3 +10,5 @@ Both are available on PyPI e.g.
 ```
 $ pip install ndg_oauth_client ndg_oauth_server
 ```
+
+Latest release is version 0.5.0.

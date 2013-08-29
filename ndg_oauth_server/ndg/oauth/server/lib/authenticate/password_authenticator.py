@@ -23,7 +23,7 @@ class PasswordAuthenticator(AuthenticatorInterface):
     """
 
     def __init__(self, typ, register):
-        super(AuthenticatorInterfacei, self).__init__(typ)
+        super(PasswordAuthenticator, self).__init__(typ)
         self._register = register
 
     def authenticate(self, request):

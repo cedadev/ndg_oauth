@@ -22,9 +22,9 @@ delegated X.509-based credentials with OAuth.
 
 Releases
 ========
-0.5.0
+0.5.1
 -----
-Integrated enhancements from Willem Engen including:
+Integrated enhancements from Willem van Engen including:
 
  * password-based client authentication, which is a commonly used client
    authentication method
@@ -81,7 +81,7 @@ The examples should be used in conjunction with the ndg_oauth_client package.
 
 setup(
     name =                      'ndg_oauth_server',
-    version =                   '0.5.0',
+    version =                   '0.5.1',
     description =               'OAuth 2.0 server',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
