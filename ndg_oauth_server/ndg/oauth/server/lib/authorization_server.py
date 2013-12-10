@@ -17,8 +17,9 @@ import urllib
 
 from ndg.oauth.server.lib.access_token.make_access_token import \
                                                     make_access_token
-from ndg.oauth.server.lib.oauth.access_token import AccessTokenRequest
-from ndg.oauth.server.lib.oauth.authorize import (AuthorizeRequest, 
+from ndg.oauth.server.lib.oauth.access_token import (AccessTokenRequest, 
+                                            ImplicitGrantAccessTokenResponse)
+from ndg.oauth.server.lib.oauth.authorize import (AuthorizeRequest,
                                                   AuthorizeResponse)
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
 from ndg.oauth.server.lib.register.access_token import AccessTokenRegister
@@ -30,16 +31,21 @@ log = logging.getLogger(__name__)
 
 class AuthorizationServer(object):
     """
-    Provides the core OAuth 2.0 server functions.
+    Provides the core OAuth 2.0 authorisation server functions.
     """
     AUTHZ_HDR_ENV_KEYNAME = 'HTTP_AUTHORIZATION'
     BEARER_TOK_ID = 'Bearer'
     MAC_TOK_ID = 'MAC'
     TOKEN_TYPES = (BEARER_TOK_ID, MAC_TOK_ID)
+    AUTHZ_CODE_RESP_TYPE = 'code'
+    TOK_RESP_TYPE = 'token'
+    RESP_TYPES = (AUTHZ_CODE_RESP_TYPE, TOK_RESP_TYPE)
     
     def __init__(self, client_register, authorizer, client_authenticator,
                  resource_register, resource_authenticator,
                  access_token_generator, config):
+        """Initialise the all the settings for an Authorisation server instance
+        """
         self.client_register = client_register
         self.authorizer = authorizer
         self.client_authenticator = client_authenticator
@@ -59,7 +65,8 @@ class AuthorizationServer(object):
         http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
 
         response_type
-              REQUIRED.  Value MUST be set to "code".
+              REQUIRED.  Value MUST be set to "code" or "token" in the case
+              of an implicit grant.
         client_id
               REQUIRED.  The client identifier as described in Section 2.2.
         redirect_uri
@@ -109,11 +116,11 @@ class AuthorizationServer(object):
 
         # Parameters should only be taken from the query string.
         params = request.GET
-        auth_request = AuthorizeRequest(params.get('response_type', None),
-                                        params.get('client_id', None),
-                                        params.get('redirect_uri', None),
-                                        params.get('scope', None),
-                                        params.get('state', None))
+        authz_request = AuthorizeRequest(params.get('response_type', None),
+                                         params.get('client_id', None),
+                                         params.get('redirect_uri', None),
+                                         params.get('scope', None),
+                                         params.get('state', None))
 
         try:
             self.check_request(request, params, post_only=False)
@@ -125,29 +132,24 @@ class AuthorizationServer(object):
                     log.error("Missing request parameter %s from params: %s",
                               param, params)
                     raise OauthException('invalid_request', 
-                                         "Missing request parameter: %s" % param)
+                                        "Missing request parameter: %s" % param)
 
             if not client_authorized:
                 raise OauthException('access_denied', 
                                      'User has declined authorization')
 
-            response_type = params.get('response_type', None)
-            if response_type != 'code':
-                raise OauthException('unsupported_response_type', 
-                                     "Response type %s not supported" % 
-                                     response_type)
-
             client_error = self.client_register.is_valid_client(
-                                                    auth_request.client_id, 
-                                                    auth_request.redirect_uri)
+                                                    authz_request.client_id, 
+                                                    authz_request.redirect_uri)
             if client_error:
                 log.error("Invalid client: %s", client_error)
                 return (None, httplib.BAD_REQUEST, client_error)
 
             # redirect_uri must be included in the request if the client has
             # more than one registered.
-            client = self.client_register.register[auth_request.client_id]
-            if len(client.redirect_uris) != 1 and not auth_request.redirect_uri:
+            client = self.client_register.register[authz_request.client_id]
+            if (len(client.redirect_uris) != 1 and 
+                not authz_request.redirect_uri):
                 log.error("An authorization request has been made without a "
                           "return URI")
                 return (None, 
@@ -155,29 +157,55 @@ class AuthorizationServer(object):
                         ('An authorization request has been made without a '
                         'return URI.'))
 
-            # Preconditions satisfied - generate grant.
-            (grant, code) = self.authorizer.generate_authorization_grant(
-                                                                auth_request, 
+            response_type = params.get('response_type', None)
+            
+            # Response may be an authorisation code or in the case of an 
+            # Implicit Grant a token
+            if response_type == self.__class__.AUTHZ_CODE_RESP_TYPE:
+                log.debug('Client requesting an authorization code')
+                
+                # Preconditions satisfied - generate grant.
+                grant, code = self.authorizer.generate_authorization_grant(
+                                                                authz_request, 
                                                                 request)
-            auth_response = AuthorizeResponse(code, auth_request.state)
+                authz_response = AuthorizeResponse(code, authz_request.state)
+    
+                if not self.authorization_grant_register.add_grant(grant):
+                    log.error('Registering grant failed')
+                    raise OauthException('server_error', 
+                                         'Authorization grant could not be '
+                                         'created')
 
-            if not self.authorization_grant_register.add_grant(grant):
-                log.error('Registering grant failed')
-                raise OauthException('server_error', 
-                                     'Authorization grant could not be created')
+                log.debug("Redirecting back after successful authorization.")
+                return self._redirect_after_authorize(authz_request, 
+                                                      authz_response)
+                                            
+            elif response_type == self.__class__.TOK_RESP_TYPE:
+                log.debug('Implicit Grant - client requesting a token')
+        
+                impl_grant_response = make_access_token(authz_request, 
+                                                    self.access_token_register,
+                                                    self.access_token_generator)
+                
+                log.debug("Redirecting back after successful implicit grant.")
+                return self._redirect_after_authorize(authz_request, 
+                                                      impl_grant_response)
+            else:
+                raise OauthException('unsupported_response_type', 
+                                     "Response type %s not supported" % 
+                                     response_type)
+
         except OauthException, exc:
             log.error("Redirecting back after error: %s - %s", 
                       exc.error, exc.error_description)
             
-            return self._redirect_after_authorize(auth_request, None, exc.error,
+            return self._redirect_after_authorize(authz_request, None, 
+                                                  exc.error,
                                                   exc.error_description)
 
-        log.debug("Redirecting back after successful authorization.")
-        return self._redirect_after_authorize(auth_request, auth_response)
-
     def _redirect_after_authorize(self, 
-                                  auth_request, 
-                                  auth_response=None, 
+                                  authz_request, 
+                                  authz_response=None, 
                                   error=None, 
                                   error_description=None):
         """Redirects to the redirect URI after the authorization process as
@@ -196,14 +224,14 @@ class AuthorizationServer(object):
         @param error_description: error description
         """
         # Check for inconsistencies that should be reported directly to the user.
-        if not auth_response and not error:
+        if not authz_response and not error:
             error = 'server_error'
             error_description = 'Internal server error'
 
         # Get the redirect URI.
-        client = self.client_register.register[auth_request.client_id]
+        client = self.client_register.register[authz_request.client_id]
         redirect_uri = (
-            auth_request.redirect_uri if auth_request.redirect_uri else \
+            authz_request.redirect_uri if authz_request.redirect_uri else \
                 client.redirect_uris[0]
         )
         if not redirect_uri:
@@ -216,14 +244,22 @@ class AuthorizationServer(object):
         if error:
             url_parameters = [('error', error), 
                               ('error_description', error_description)]
+            
+        elif isinstance(authz_response, AuthorizeResponse):
+            url_parameters = [('code', authz_response.code)]
+            
+        elif isinstance(authz_response, ImplicitGrantAccessTokenResponse):
+            url_parameters = authz_response.get_as_dict().items()
+            
         else:
-            url_parameters = [('code', auth_response.code)]
+            raise OauthException('Expecting authorisation response or implicit '
+                                 'grant response, got %r' % authz_response)
             
         full_redirect_uri = self._make_combined_url(redirect_uri, 
                                                     url_parameters, 
-                                                    auth_request.state)
+                                                    authz_request.state)
         log.debug("Redirecting to URI: %s", full_redirect_uri)
-        return(full_redirect_uri, None, None)
+        return full_redirect_uri, None, None
 
     @staticmethod
     def _make_combined_url(base_url, parameters, state):
@@ -236,7 +272,7 @@ class AuthorizationServer(object):
         @param parameters: parameter names and values
 
         @type state: str
-        @param state: OAuth state parameter value, which whould not be URL
+        @param state: OAuth state parameter value, which should not be URL
         encoded
 
         @rtype: str

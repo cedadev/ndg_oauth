@@ -7,12 +7,14 @@ __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
-import uuid
-
-from ndg.oauth.server.lib.access_token.access_token_interface import AccessTokenInterface
+from ndg.oauth.server.lib.access_token.access_token_interface import \
+                                                        AccessTokenInterface
 from ndg.oauth.server.lib.register.access_token import AccessToken
 
+
 class BearerTokenGenerator(AccessTokenInterface):
+    '''Class to generate bearer token'''
+    
     def __init__(self, lifetime, token_type, **kw):
         """
         @type lifetime: int
@@ -27,21 +29,22 @@ class BearerTokenGenerator(AccessTokenInterface):
         self.lifetime = lifetime
         self.token_type = token_type
 
-    def get_access_token(self, token_request, grant, request):
+    def get_access_token(self, _arg):
         """
         Gets an access token with an ID that is a random UUID used as a bearer
         token.
-        @type token_request: ndg.oauth.server.lib.access_token.AccessTokenRequest
-        @param token_request: access token request
+        @type request: ndg.oauth.server.lib.access_token.AccessTokenRequest /
+        ndg.oauth.server.lib.oauth.authorize.AuthorizeRequest
+        @param request: access token request
 
-        @type grant: ndg.oauth.server.lib.register.authorization_grant.AuthorizationGrant
-        @param grant: authorization grant
-
-        @type request: webob.Request
-        @param request: HTTP request object
+        @type _arg: 
+        ndg.oauth.server.lib.register.authorization_grant.AuthorizationGrant /
+        ndg.oauth.server.lib.oauth.authorize.AuthorizeRequest
+        @param _arg: authorization grant (authorisation code flow) or 
+        authorisation request (implicit flow)
 
         @rtype: ndg.oauth.server.lib.register.access_token.AccessToken
         @return: access token or None if an error occurs
         """
-        token_id = uuid.uuid4().hex
-        return AccessToken(token_id, token_request, grant, self.token_type, self.lifetime)
+        return AccessToken.create(self.token_type, _arg, self.lifetime)
+

@@ -6,6 +6,8 @@ __copyright__ = "(C) 2011 Science and Technology Facilities Council"
 __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
+from abc import ABCMeta, abstractmethod
+
 
 class AccessTokenRequest(object):
     """
@@ -27,22 +29,68 @@ class AccessTokenRequest(object):
         self.code = code
         self.redirect_uri = redirect_uri
 
-class AccessTokenResponse(object):
+
+
+class AccessTokenResponseBase:
+    """OAuth 2.0 access token response base class.
     """
-    OAuth 2.0 access token response object.
-    """
-    def __init__(self, access_token, token_type, expires_in, refresh_token=None):
-        """
+    __metaclass__ = ABCMeta
+    
+    def __init__(self, access_token, token_type, expires_in):
+        """Set access token, type, expiry.
         """
         self.access_token = access_token
         self.token_type = token_type
         self.expires_in = expires_in
-        self.refresh_token = refresh_token
 
+    @abstractmethod
     def get_as_dict(self):
         content_dict = {'access_token': self.access_token,
                         'token_type': self.token_type,
                         'expires_in': self.expires_in}
+
+        return content_dict
+    
+    
+class AuthzCodeGrantAccessTokenResponse(AccessTokenResponseBase):
+    """OAuth 2.0 access token response for Authorisation Grant code flow.
+    """
+    def __init__(self, *arg, **kwarg):
+        """Set access token, type, expiry and optionally, a refresh token.
+        Refresh token should not be set for the Implicit Grant flow
+        """
+        self.refresh_token = kwarg.pop('refresh_token', None)
+        
+        super(AuthzCodeGrantAccessTokenResponse, self).__init__(*arg, **kwarg)
+
+    def get_as_dict(self):
+        content_dict = super(AuthzCodeGrantAccessTokenResponse, 
+                             self).get_as_dict()
+        
         if self.refresh_token:
             content_dict['refresh_token'] = self.refresh_token
+            
+        return content_dict
+
+
+class ImplicitGrantAccessTokenResponse(AccessTokenResponseBase):
+    """OAuth 2.0 access token response for Implicit Grant code flow.
+    """
+    def __init__(self, access_token, token_type, expires_in, state, scope=None):
+        """Set access token, type, expiry, state and optionally, scope.
+        """
+        super(ImplicitGrantAccessTokenResponse, self).__init__(access_token, 
+                                                               token_type, 
+                                                               expires_in)
+        self.state = state
+        self.scope = scope
+        
+    def get_as_dict(self):
+        content_dict = super(ImplicitGrantAccessTokenResponse, 
+                             self).get_as_dict()
+                  
+        content_dict['state'] = self.state
+        if self.scope:
+            content_dict['scope'] = self.scope
+            
         return content_dict

@@ -9,6 +9,7 @@ __revision__ = "$Id$"
 
 from datetime import datetime, timedelta
 import logging
+import uuid
 
 from ndg.oauth.server.lib.register.register_base import RegisterBase
 import ndg.oauth.server.lib.register.scopeutil as scopeutil
@@ -19,15 +20,55 @@ class AccessToken(object):
     """
     Access token as stored in the reqister
     """
-    def __init__(self, token_id, request, grant, token_type, lifetime):
-        self.token_id = token_id
+    def __init__(self, token_type, lifetime):
+        self.token_id = uuid.uuid4().hex
         self.token_type = token_type
-        self.grant = grant
-        self.scope = scopeutil.scopeStringToList(grant.scope_str)
+        self.grant = None
+        self.scope = None
         self.timestamp = datetime.now()
         self.lifetime = lifetime
         self.expires = self.timestamp + timedelta(days=0, seconds=lifetime)
         self.valid = True
+              
+    @classmethod  
+    def from_token_request(cls, token_type, grant, lifetime):
+        '''Create an instance from a token request.  This applies to the 
+        Authorization Code Grant flow
+        '''
+        obj = cls(token_type, lifetime)
+        
+        obj.token_type = token_type
+        obj.grant = grant        
+        obj.scope = scopeutil.scopeStringToList(grant.scope_str)
+        
+        return obj
+
+    @classmethod
+    def from_authz_request(cls, token_type, authz_request, lifetime):
+        '''Create an instance from an authorisation request.  This applies to 
+        the Implicit Grant flow
+        '''
+        obj = cls(token_type, lifetime)
+
+        obj.token_type = token_type
+        obj.scope = authz_request.scope
+        
+        return obj
+
+    @classmethod
+    def create(cls, token_type, _arg, lifetime):
+        if hasattr(_arg, 'scope_str'):
+            # Assume a 'grant' object - authorisation code grant flow
+            method_name = 'from_token_request'
+            
+        else:
+            # Implicit grant flow
+            method_name = 'from_authz_request'
+            
+        method = getattr(cls, method_name)
+        
+        return method(token_type, _arg, lifetime)
+            
 
 class AccessTokenRegister(RegisterBase):
     """

@@ -16,4 +16,4 @@ class OauthException(Exception):
         self.error_description = error_description
 
     def __str__(self):
-        return("%s: %s" % (self.error, self.error_description))
+        return "%s: %s" % (self.error, self.error_description)

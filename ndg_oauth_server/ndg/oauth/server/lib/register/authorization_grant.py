@@ -1,4 +1,4 @@
-"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""OAuth 2.0 WSGI server middleware
 """
 __author__ = "R B Wilkinson"
 __date__ = "12/12/11"
@@ -14,6 +14,7 @@ from ndg.oauth.server.lib.register.register_base import RegisterBase
 
 log = logging.getLogger(__name__)
 
+
 class AuthorizationGrant(object):
     """
     Authorization grant as stored in the reqister
@@ -28,6 +29,7 @@ class AuthorizationGrant(object):
         self.timestamp = datetime.utcnow()
         self.expires = self.timestamp + timedelta(days=0, seconds=lifetime)
         self.granted = False
+        
 
 class AuthorizationGrantRegister(RegisterBase):
     """
@@ -38,7 +40,9 @@ class AuthorizationGrantRegister(RegisterBase):
 
     def __init__(self, config, prefix='cache'):
         cache_opts = self.parse_config(prefix, self.CACHE_NAME, config)
-        super(AuthorizationGrantRegister, self).__init__('AuthorizationGrantRegister', cache_opts)
+        super(AuthorizationGrantRegister, self).__init__(
+                                                'AuthorizationGrantRegister', 
+                                                cache_opts)
 
     def add_grant(self, grant):
         if self.has_key(grant.code):

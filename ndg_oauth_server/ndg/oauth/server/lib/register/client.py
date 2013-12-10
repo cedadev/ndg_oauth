@@ -11,20 +11,43 @@ from ConfigParser import SafeConfigParser
 log = logging.getLogger(__name__)
 
 
+class ClientRegistrationConfigError(Exception):
+    '''Client registration configuration error'''
+    
+    
 class ClientRegistration(object):
     """
     An entry in the client register.
     """
+    CLIENT_TYPE_PUBLIC = 'public'
+    CLIENT_TYPE_CONFIDENTIAL = 'confidential'
+    CLIENT_TYPES = (CLIENT_TYPE_PUBLIC, CLIENT_TYPE_CONFIDENTIAL)
+    
     def __init__(self, name, client_id, client_secret, client_type,
                  redirect_uris, authentication_data):
         self.name = name
         self.id = client_id
         self.secret = client_secret
+        
+        if client_type not in self.__class__.CLIENT_TYPES:
+            raise ClientRegistrationConfigError('Client type %r not a '
+                                                'recognised type %r' % 
+                                                (client_type,
+                                                 self.__class__.CLIENT_TYPES))
+            
         self.type = client_type
+        
         if redirect_uris:
             self.redirect_uris = [r.strip() for r in redirect_uris.split(',')]
         else:
             self.redirect_uris = []
+            
+        if (authentication_data is None and 
+            self.type != self.__class__.CLIENT_TYPE_PUBLIC):
+            raise ClientRegistrationConfigError('Authentication data must be '
+                                                'set for %r client type' %
+                                                self.type) 
+        
         self.authentication_data = authentication_data
 
 
@@ -34,11 +57,11 @@ class ClientRegister(object):
     """
     register = {}
     def __init__(self, config_file=None):
-	"""
-	@type config_file: basestring
-	@param config_file: configuration file to be read.  If the file is
-	None or null, no read is attempted.
-	"""
+        """
+	    @type config_file: basestring
+	    @param config_file: configuration file to be read.  If the file is
+	    None or null, no read is attempted.
+	    """
         if config_file:
             config = SafeConfigParser()
             config.read(config_file)
@@ -56,13 +79,20 @@ class ClientRegister(object):
         if config.has_option(client_section_name, 'secret'):
             client_secret = config.get(client_section_name, 'secret')
 
+        # Note authentication data can be None for public clients
+        if config.has_option(client_section_name, 'authentication_data'):
+            authentication_data = config.get(client_section_name, 
+                                             'authentication_data')
+        else:
+            authentication_data = None
+            
         client_registration = ClientRegistration(
             config.get(client_section_name, 'name'),
             client_id,
             client_secret,
             config.get(client_section_name, 'type'),
             config.get(client_section_name, 'redirect_uris'),
-            config.get(client_section_name, 'authentication_data'))
+            authentication_data)
 
         self.register[client_id] = client_registration
 
@@ -70,7 +100,8 @@ class ClientRegister(object):
         """Determines if a client ID is in the client register.
         """
         if client_id not in self.register:
-            return ('Client of id "%s" is not registered.' % client_id)
+            return 'Client of id "%s" is not registered.' % client_id
+        
         return None
 
     def is_valid_client(self, client_id, redirect_uri):
@@ -79,7 +110,7 @@ class ClientRegister(object):
         """
         # Check if client ID is registered.
         if client_id not in self.register:
-            return ('Client of id "%s" is not registered.' % client_id)
+            return 'Client of id "%s" is not registered.' % client_id
 
         client = self.register[client_id]
 
@@ -88,7 +119,8 @@ class ClientRegister(object):
                 return ('No redirect URI is registered for the client or '
                         'specified in the request.')
 
-        if redirect_uri is not None and redirect_uri not in client.redirect_uris:
+        if (redirect_uri is not None and 
+            redirect_uri not in client.redirect_uris):
             return 'Redirect URI is not registered.'
 
         return None

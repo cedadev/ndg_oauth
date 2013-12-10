@@ -11,7 +11,6 @@ __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
 import httplib
-import json
 import logging
 import urllib
 import urlparse
@@ -244,8 +243,6 @@ class Oauth2ServerMiddleware(object):
         @rtype: iterable
         @return: WSGI response
         """
-        log.debug("authorize called")
-
         # Stop immediately if the client is not registered.
         (error, error_description
                         ) = self._authorizationServer.is_registered_client(req)
@@ -274,7 +271,7 @@ class Oauth2ServerMiddleware(object):
         if not client_authorized:
             log.debug("User has declined authorization for client.")
 
-        # Request authorization grant.
+        # Request authorization grant or for Implicit Grant flow
         (redirect_uri, 
          error, 
          error_description) = self._authorizationServer.authorize(
@@ -407,63 +404,63 @@ class Oauth2ServerMiddleware(object):
         start_response(status_str, headers)
         return [response]
 
-    def request_certificate(self, req, start_response):
-        """
-        Resource service to issue a certificate based on a certificate request
-        contained in the request and the identity of the client for whom the
-        access token was issued.
-        @type req: webob.Request
-        @param req: HTTP request object
-
-        @type start_response: 
-        @param start_response: WSGI start response function
-
-        @rtype: iterable
-        @return: WSGI response
-        """
-        log.debug("request_certificate called")
-        cert = None
-        error = None
-        status = httplib.OK
-        dn = req.environ.get(self.CERT_DN_ENVIRON_KEY)
-        if dn:
-            log.debug("Found certificate DN: %s", dn)
-        else:
-            # Client must be authenticated - no other error should be included
-            # in this case.
-            status = httplib.FORBIDDEN
-
-        if status == httplib.OK:
-            (token, 
-             status,
-             error) = self._authorizationServer.get_registered_token(req, dn)
-
-        if status == httplib.OK:
-            # Token is valid so get a certificate.
-            cert = self._myproxy_cert_request.get_resource(token, req)
-            if not cert:
-                status = httplib.INTERNAL_SERVER_ERROR
-
-        content_dict = {'status': status}
-        if error:
-            content_dict['error'] = error
-        if cert:
-            content_dict['certificate'] = cert
-        response = json.dumps(content_dict)
-
-        headers = [
-            ('Content-Type', 'application/json; charset=UTF-8'),
-            ('Cache-Control', 'no-store'),
-            ('Content-length', str(len(response))),
-            ('Pragma', 'no-store')
-        ]
-        status_str = self._get_http_status_string(status if status
-                                                  else httplib.OK)
-        if error:
-            log.debug("Error obtaining certificate: %s - %s", status_str, error)
-
-        start_response(status_str, headers)
-        return [response]
+#    def request_certificate(self, req, start_response):
+#        """
+#        Resource service to issue a certificate based on a certificate request
+#        contained in the request and the identity of the client for whom the
+#        access token was issued.
+#        @type req: webob.Request
+#        @param req: HTTP request object
+#
+#        @type start_response: 
+#        @param start_response: WSGI start response function
+#
+#        @rtype: iterable
+#        @return: WSGI response
+#        """
+#        log.debug("request_certificate called")
+#        cert = None
+#        error = None
+#        status = httplib.OK
+#        dn = req.environ.get(self.CERT_DN_ENVIRON_KEY)
+#        if dn:
+#            log.debug("Found certificate DN: %s", dn)
+#        else:
+#            # Client must be authenticated - no other error should be included
+#            # in this case.
+#            status = httplib.FORBIDDEN
+#
+#        if status == httplib.OK:
+#            (token, 
+#             status,
+#             error) = self._authorizationServer.get_registered_token(req, dn)
+#
+#        if status == httplib.OK:
+#            # Token is valid so get a certificate.
+#            cert = self._myproxy_cert_request.get_resource(token, req)
+#            if not cert:
+#                status = httplib.INTERNAL_SERVER_ERROR
+#
+#        content_dict = {'status': status}
+#        if error:
+#            content_dict['error'] = error
+#        if cert:
+#            content_dict['certificate'] = cert
+#        response = json.dumps(content_dict)
+#
+#        headers = [
+#            ('Content-Type', 'application/json; charset=UTF-8'),
+#            ('Cache-Control', 'no-store'),
+#            ('Content-length', str(len(response))),
+#            ('Pragma', 'no-store')
+#        ]
+#        status_str = self._get_http_status_string(status if status
+#                                                  else httplib.OK)
+#        if error:
+#            log.debug("Error obtaining certificate: %s - %s", status_str, error)
+#
+#        start_response(status_str, headers)
+#        return [response]
 
     @staticmethod
     def _get_http_status_string(status):

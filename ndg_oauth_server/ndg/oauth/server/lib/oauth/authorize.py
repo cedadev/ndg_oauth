@@ -7,6 +7,7 @@ __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
 
+
 class AuthorizeRequest(object):
     """
     OAuth 2.0 authorization request object
@@ -34,6 +35,7 @@ class AuthorizeRequest(object):
         self.redirect_uri = redirect_uri
         self.scope = scope
         self.state = state
+
 
 class AuthorizeResponse(object):
     """
