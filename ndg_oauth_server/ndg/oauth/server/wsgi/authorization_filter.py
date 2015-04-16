@@ -141,7 +141,7 @@ class Oauth2AuthorizationMiddleware(object):
         else:
             response = "OAuth 2.0 Authorization Filter - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
-                           [('Content-type', 'text/plain'),
+                           [('Content-type', 'text/plain; charset=utf-8'),
                             ('Content-length', str(len(response)))
                             ])
             return [response]
@@ -254,7 +254,7 @@ class Oauth2AuthorizationMiddleware(object):
             response = self.renderer.render(self.client_authorization_form,
                             self._renderingConfiguration.merged_parameters(c))
         start_response(self._get_http_status_string(httplib.OK),
-           [('Content-type', 'text/html'),
+           [('Content-type', 'text/html; charset=utf-8'),
             ('Content-length', str(len(response)))
             ])
         return [response]
@@ -280,7 +280,7 @@ class Oauth2AuthorizationMiddleware(object):
             status_str = self._get_http_status_string(
                                                 httplib.INTERNAL_SERVER_ERROR)
             start_response(status_str,
-                           [('Content-type', 'text/html'),
+                           [('Content-type', 'text/html; charset=utf-8'),
                             ('Content-length', str(len(response)))
                             ])
             return [response]

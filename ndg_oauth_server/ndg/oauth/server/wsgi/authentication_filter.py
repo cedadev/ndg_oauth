@@ -137,7 +137,7 @@ class AuthenticationFormMiddleware(object):
         else:
             response = "OAuth 2.0 Authentication Filter - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
-                           [('Content-type', 'text/plain'),
+                           [('Content-type', 'text/plain; charset=utf-8'),
                             ('Content-length', str(len(response)))
                             ])
             return [response]
@@ -172,7 +172,7 @@ class AuthenticationFormMiddleware(object):
         response = self.renderer.render(self.authentication_form,
                             self._renderingConfiguration.merged_parameters(c))
         start_response(self._get_http_status_string(httplib.OK),
-           [('Content-type', 'text/html'),
+           [('Content-type', 'text/html; charset=utf-8'),
             ('Content-length', str(len(response)))
             ])
         return [response]
@@ -221,7 +221,7 @@ class AuthenticationFormMiddleware(object):
             response = self.renderer.render(self.authentication_cancelled,
                             self._renderingConfiguration.merged_parameters(c))
             start_response(self._get_http_status_string(httplib.OK),
-               [('Content-type', 'text/html'),
+               [('Content-type', 'text/html; charset=utf-8'),
                 ('Content-length', str(len(response)))
                 ])
             return [response]

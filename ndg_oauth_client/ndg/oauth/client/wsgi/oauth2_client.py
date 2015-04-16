@@ -227,7 +227,7 @@ class Oauth2ClientMiddleware(object):
                             self._renderingConfiguration.merged_parameters(c))
             
             start_response(self._get_http_status_string(httplib.OK),
-                           [('Content-type', 'text/html'),
+                           [('Content-type', 'text/html; charset=utf-8'),
                             ('Content-length', str(len(response)))
                             ])
             

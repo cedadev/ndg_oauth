@@ -371,10 +371,9 @@ class AuthorizationServer(object):
                                            params.get('redirect_uri', None))
 
         try:
-            response = make_access_token(
-                token_request, client_id, self.access_token_register,
-                self.access_token_generator, self.authorization_grant_register,
-                request)
+            response = make_access_token(token_request, client_id, 
+                self.access_token_register, self.access_token_generator, 
+                self.authorization_grant_register)
 
         except OauthException, exc:
             return (self._error_access_token_response(exc.error, 

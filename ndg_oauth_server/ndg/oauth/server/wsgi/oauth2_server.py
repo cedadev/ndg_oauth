@@ -227,7 +227,7 @@ class Oauth2ServerMiddleware(object):
         else:
             response = "OAuth 2.0 Server - Invalid URL"
             start_response(self._get_http_status_string(httplib.NOT_FOUND),
-                           [('Content-type', 'text/plain'),
+                           [('Content-type', 'text/plain; charset=utf-8'),
                             ('Content-length', str(len(response)))
                             ])
             return [response]
@@ -291,7 +291,7 @@ class Oauth2ServerMiddleware(object):
                                                                   'ignore')
         log.error("Returning error: %s - %s", error, error_description)
         start_response(self._get_http_status_string(httplib.BAD_REQUEST),
-                       [('Content-type', 'text/plain'),
+                       [('Content-type', 'text/plain; charset=utf-8'),
                         ('Content-length', str(len(response)))
                         ])
         return[response]

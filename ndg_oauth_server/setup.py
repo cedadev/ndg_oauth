@@ -94,7 +94,7 @@ setup(
         "Beaker",
         "WebOb",
         "repoze.who",
-        "Genshi",
+        "Genshi<=0.6",
     ],
     extras_require = {'slcs_support': 'MyProxyClient'},
     packages = find_packages(),
