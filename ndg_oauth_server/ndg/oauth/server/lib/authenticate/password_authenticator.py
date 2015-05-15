@@ -9,7 +9,8 @@ __revision__ = "$Id$"
 
 from base64 import b64decode
 
-from ndg.oauth.server.lib.authenticate.authenticator_interface import AuthenticatorInterface
+from ndg.oauth.server.lib.authenticate.authenticator_interface import \
+                                                        AuthenticatorInterface
 from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
 
 
@@ -26,34 +27,38 @@ class PasswordAuthenticator(AuthenticatorInterface):
         super(PasswordAuthenticator, self).__init__(typ)
         self._register = register
 
-    def authenticate(self, request):
+    def authenticate(self, params, headers):
         """
         Checks for id/secret pair in Authorization header, or else
         POSTed request parameters.
-        @type request: webob.Request
-        @param request: HTTP request object
+        :type client_id: string
+        :param client_id: client identifier
 
-        @rtype: str
-        @return: id of authenticated client/resource
+        :rtype: str
+        :return: id of authenticated client/resource
         
-        Raise OauthException if authentication fails.
+        :raise OauthException: if authentication fails.
         """
-        cid = secret = None
-        if 'Authorization' in request.headers and request.headers['Authorization'].startswith('Basic'):
-            cid, secret = b64decode(request.headers['Authorization'][6:]).split(':',1)
+        # Normalise headers input ready for matching
+        headers_ = [(key.lower(), val) for key, val in headers]
+        
+        authz_header = headers_.get('authorization', '')
+        if authz_header.startswith('Basic'):
+            client_id, client_secret = b64decode(authz_header[6:]).split(':', 1)
 
-        elif 'client_id' in request.POST and 'client_secret' in request.POST:
-            cid = request.POST['client_id']
-            secret = request.POST['client_secret']
-
-        if not cid or not secret:
+        elif 'client_id' in params and 'client_secret' in params:
+            client_id = params['client_id']
+            client_secret = params['client_secret']
+            
+        if not client_id or not client_secret:
             raise OauthException('invalid_%s' % self.typ,
-				 'No %s password authentication supplied' % self.typ)
-
+                 'No %s password authentication supplied' % self.typ)
+            
         for authorization in self._register.register.itervalues():
-            if authorization.id == cid and authorization.secret == secret:
+            if (authorization.id == client_id and 
+                authorization.secret == client_secret):
                 return authorization.id
 
         raise OauthException('invalid_%s' % self.typ,
-			     '%s access denied: %s' % (cid, self.typ))
+			                 '%s access denied: %s' % (client_id, self.typ))
 

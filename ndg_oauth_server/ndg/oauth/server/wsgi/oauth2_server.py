@@ -19,8 +19,6 @@ from webob import Request
 
 from ndg.oauth.server.lib.access_token.bearer_token_generator import \
     BearerTokenGenerator
-from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator \
-    import MyProxyCertTokenGenerator
 from ndg.oauth.server.lib.authenticate.certificate_authenticator \
     import CertificateAuthenticator
 from ndg.oauth.server.lib.authenticate.noop_authenticator import \
@@ -30,8 +28,6 @@ from ndg.oauth.server.lib.authenticate.password_authenticator \
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
 from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import \
     AuthorizerStoringIdentifier
-from ndg.oauth.server.lib.resource_request.myproxy_cert_request import \
-    MyproxyCertRequest
 from ndg.oauth.server.lib.register.client import ClientRegister
 from ndg.oauth.server.lib.register.resource import ResourceRegister
 
@@ -66,8 +62,6 @@ class Oauth2ServerMiddleware(object):
     CLIENT_REGISTER_OPTION = 'client_register'
     RESOURCE_AUTHENTICATION_METHOD_OPTION = 'resource_authentication_method'
     RESOURCE_REGISTER_OPTION = 'resource_register'
-    MYPROXY_CLIENT_KEY_OPTION = 'myproxy_client_key'
-    MYPROXY_GLOBAL_PASSWORD_OPTION = 'myproxy_global_password'
     USER_IDENTIFIER_KEY_OPTION = 'user_identifier_key'
     USER_IDENTIFIER_GRANT_DATA_KEY = 'user_identifier'
 
@@ -85,8 +79,6 @@ class Oauth2ServerMiddleware(object):
         CLIENT_AUTHORIZATION_URL_OPTION: '/client_authorization/authorize',
         CLIENT_AUTHORIZATIONS_KEY_OPTION: 'client_authorizations',
         RESOURCE_AUTHENTICATION_METHOD_OPTION: 'none',
-        MYPROXY_CLIENT_KEY_OPTION: \
-        'myproxy.server.wsgi.middleware.MyProxyClientMiddleware.myProxyClient',
         USER_IDENTIFIER_KEY_OPTION: 'REMOTE_USER'
     }
     method = {
@@ -100,21 +92,21 @@ class Oauth2ServerMiddleware(object):
         """
         Sets up the server depending on the configuration.
 
-        @type app: WSGI application
-        @param app: wrapped application/middleware
+        :type app: WSGI application
+        :param app: wrapped application/middleware
 
-        @type app_conf: dict
-        @param app_conf: application configuration settings - ignored - this
+        :type app_conf: dict
+        :param app_conf: application configuration settings - ignored - this
         method includes this arg to fit Paste middleware / app function 
         signature
 
-        @@type prefix: str
-        @param prefix: optional prefix for parameter names included in the 
+        @:type prefix: str
+        :param prefix: optional prefix for parameter names included in the 
         local_conf dict - enables these parameters to be filtered from others
         which don't apply to this middleware
 
-        @type local_conf: dict
-        @param local_conf: attribute settings to apply
+        :type local_conf: dict
+        :param local_conf: attribute settings to apply
         """
         self._app = app
         conf = self._set_configuration(prefix, local_conf)
@@ -124,18 +116,6 @@ class Oauth2ServerMiddleware(object):
             access_token_generator = BearerTokenGenerator(
                                         self.access_token_lifetime_seconds, 
                                         self.access_token_type)
-            
-        elif self.access_token_type == 'slcs':
-            # Configure authorization server to use MyProxy certificates as 
-            # access tokens.
-            access_token_generator = MyProxyCertTokenGenerator(
-                self.access_token_lifetime_seconds, 
-                self.access_token_type,
-                certificate_request_parameter=self.certificate_request_parameter,
-                myproxy_client_env_key=self.myproxy_client_env_key,
-                myproxy_global_password=self.myproxy_global_password,
-                user_identifier_grant_data_key=\
-                    self.USER_IDENTIFIER_GRANT_DATA_KEY)
         else:
             raise ValueError("Invalid configuration value %s for %s" %
                              (self.access_token_type,
@@ -161,16 +141,10 @@ class Oauth2ServerMiddleware(object):
             self.resource_authentication_method, resource_register,
             'resource', self.RESOURCE_AUTHENTICATION_METHOD_OPTION)
 
-        self._authorizationServer = AuthorizationServer(
+        self._authorization_server = AuthorizationServer(
             client_register, authorizer, client_authenticator,
             resource_register, resource_authenticator,
             access_token_generator, conf)
-
-        self._myproxy_cert_request = MyproxyCertRequest(
-            certificate_request_parameter=self.certificate_request_parameter,
-            myproxy_client_env_key=self.myproxy_client_env_key,
-            myproxy_global_password=self.myproxy_global_password,
-            user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
 
     def _get_authenticator(self, name, register, typ, option_name):
         """Returns new authenticator by name"""
@@ -189,14 +163,14 @@ class Oauth2ServerMiddleware(object):
 
     def __call__(self, environ, start_response):
         """
-        @type environ: dict
-        @param environ: WSGI environment
+        :type environ: dict
+        :param environ: WSGI environment
 
-        @type start_response: WSGI start response function
-        @param start_response: start response function
+        :type start_response: WSGI start response function
+        :param start_response: start response function
 
-        @rtype: iterable
-        @return: WSGI response
+        :rtype: iterable
+        :return: WSGI response
         """
         log.debug("Oauth2ServerMiddleware.__call__ ...")
         req = Request(environ)
@@ -207,7 +181,7 @@ class Oauth2ServerMiddleware(object):
         # check access tokens presented to it from clients against ones issued
         # by the authorisation server
         environ[self.__class__.AUTHORISATION_SERVER_ENVIRON_KEYNAME
-                ] = self._authorizationServer
+                ] = self._authorization_server
                 
         # Determine what operation the URL specifies.
         actionPath = None
@@ -234,18 +208,18 @@ class Oauth2ServerMiddleware(object):
 
     def authorize(self, req, start_response):
         """Handles OAuth 2 authorize request.
-        @type req: webob.Request
-        @param req: HTTP request object
+        :type req: webob.Request
+        :param req: HTTP request object
 
-        @type start_response: WSGI start response function
-        @param start_response: start response function
+        :type start_response: WSGI start response function
+        :param start_response: start response function
 
-        @rtype: iterable
-        @return: WSGI response
+        :rtype: iterable
+        :return: WSGI response
         """
         # Stop immediately if the client is not registered.
         (error, error_description
-                        ) = self._authorizationServer.is_registered_client(req)
+                        ) = self._authorization_server.is_registered_client(req)
         if error:
             log.debug("Error checking if client registered: %s - %s", error,
                       error_description)
@@ -271,19 +245,154 @@ class Oauth2ServerMiddleware(object):
         if not client_authorized:
             log.debug("User has declined authorization for client.")
 
-        # Request authorization grant or for Implicit Grant flow
-        (redirect_uri, 
-         error, 
-         error_description) = self._authorizationServer.authorize(
-                                                            req, 
-                                                            client_authorized)
+        # Parameters should only be taken from the query string.
+        params = req.GET
+
+        # Check for consistency
+        (error, 
+         error_description) = self.__class__.check_authorization_request(req, 
+                                                                         params)
         if error:
             return self._error_response(error, 
                                         error_description, 
                                         start_response)
-        else:
-            return self._redirect(redirect_uri, start_response)
 
+        # Request authorization grant or for Implicit Grant flow
+        (redirect_uri, 
+         error, 
+         error_description) = self._authorization_server.authorize(
+                                params.get('response_type', None),
+                                params.get('client_id', None),
+                                client_authorized,
+                                user,
+                                redirect_uri=params.get('redirect_uri', None),
+                                scope=params.get('scope', None),
+                                state=params.get('state', None))
+        if error:
+            return self._error_response(error, 
+                                        error_description, 
+                                        start_response)
+
+        return self._redirect(redirect_uri, start_response)
+        
+    @staticmethod
+    def check_request(request, params, post_only=False):
+        """
+        Checks that the request is valid in the following respects:
+        o Must be over HTTPS.
+        o Optionally, must use the POST method.
+        o Parameters must not be repeated.
+        If the request is directly from the client, the user must be
+        authenticated - it is assumed that the caller has checked this.
+
+        :type request: webob.Request
+        :param request: HTTP request object
+
+        :type params: dict
+        :param params: request parameters
+
+        :type post_only: bool
+        :param post_only: True if the HTTP method must be POST, otherwise False
+
+        :rtype tuple:
+        :return: tuple containing error code and error message.  Both are set to
+        None if no error occurred.
+        """
+        if request.scheme != 'https':
+            return ('invalid_request', 
+                    'Transport layer security must be used for this request.')
+
+        if post_only and request.method != 'POST':
+            return ('invalid_request', 
+                    'HTTP POST method must be used for this request.')
+
+        # Check for duplicate parameters.
+        param_counts = {}
+        for key in params.iterkeys():
+            count = param_counts.get(key, 0)
+            param_counts[key] = count + 1
+
+        for key, count in param_counts.iteritems():
+            if count > 1:
+                return ('invalid_request', 'Parameter "%s" is repeated.' % key)
+            
+        return None, None
+
+    @classmethod
+    def check_access_token_request(cls, request, params, post_only=False):
+        '''Check validity of access token request syntax and transport scheme
+        
+        :type request: webob.Request
+        :param request: HTTP request object
+
+        :type params: dict
+        :param params: request parameters
+
+        :type post_only: bool
+        :param post_only: True if the HTTP method must be POST, otherwise False
+
+        :rtype tuple:
+        :return: tuple containing error code and error message.  Both are set to
+        None if no error occurred.
+        '''
+        error_code, error_description = cls.check_request(request, params, 
+                                                          post_only=False)
+        if error_code:
+            return error_code, error_description
+        else:            
+            # redirect_uri is only required if it was included in the 
+            # authorization request.
+            required_parameters = ['grant_type', 'code']
+            missing_parameters = []
+            for param in required_parameters:
+                if param not in params:
+                    log.error("Missing request parameter %s from inputs: %s",
+                              param, params)
+                    missing_parameters.append(param)
+            
+            if len(missing_parameters):
+                return ('invalid_request', "Missing request parameter(s): %s" % 
+                        missing_parameters)
+            else:
+                return None, None
+            
+    @classmethod
+    def check_authorization_request(cls, request, params, post_only=False):
+        '''Check validity of authorization request syntax and transport scheme
+        
+        :type request: webob.Request
+        :param request: HTTP request object
+
+        :type params: dict
+        :param params: request parameters
+
+        :type post_only: bool
+        :param post_only: True if the HTTP method must be POST, otherwise False
+
+        :rtype tuple:
+        :return: tuple containing error code and error message.  Both are set to
+        None if no error occurred.
+        '''
+        error_code, error_description = cls.check_request(request, params, 
+                                                          post_only=False)
+        if error_code:
+            return error_code, error_description
+        else:
+            # Check for required parameters.
+            required_parameters = ['response_type', 'client_id']
+            missing_parameters = []
+            for param in required_parameters:
+                if param not in params:
+                    log.error("Missing request parameter %s from params: %s",
+                              param, params)
+                    missing_parameters.append(param)
+            
+            if len(missing_parameters):
+                return ('invalid_request', "Missing request parameter(s): %s" % 
+                        missing_parameters)
+            else:
+                return None, None
+                
     def _error_response(self, error, error_description, start_response):
         """Returns and error response.
         """
@@ -300,11 +409,11 @@ class Oauth2ServerMiddleware(object):
         """
         Gets the URL to which to redirect for the user to authorize the client.
         Returns: URL or None if already authorized
-        @type user: str
-        @param user: identifier of user/resource owner
+        :type user: str
+        :param user: identifier of user/resource owner
 
-        @type req: webob.Request
-        @param req: HTTP request object
+        :type req: webob.Request
+        :param req: HTTP request object
         """
         client_authorizations = req.environ.get(
                                             self.client_authorizations_env_key)
@@ -346,33 +455,49 @@ class Oauth2ServerMiddleware(object):
 
     def access_token(self, req, start_response):
         """Handles OAuth 2 access token request.
-        @type req: webob.Request
-        @param req: HTTP request object
+        :type req: webob.Request
+        :param req: HTTP request object
 
-        @type start_response: 
-        @param start_response: WSGI start response function
+        :type start_response: 
+        :param start_response: WSGI start response function
 
-        @rtype: iterable
-        @return: WSGI response
+        :rtype: iterable
+        :return: WSGI response
         """
         log.debug("access_token called")
+        
+        # Parameters should only be taken from the body, not the URL query 
+        # string.
+        params = req.POST
+        self.__class__.check_access_token_request(req, params, post_only=True)
+
         (response, 
          error_status, 
-         error_description) = self._authorizationServer.access_token(req)
+         error_description) = self._authorization_server.access_token(params,
+                                                                      req.headers)
         if response is None:
             response = ''
+            
         headers = [
             ('Content-Type', 'application/json; charset=UTF-8'),
             ('Cache-Control', 'no-store'),
             ('Content-length', str(len(response))),
             ('Pragma', 'no-store')
         ]
+        
+        if error_status == 401:
+            # Add Basic Auth challenge header
+            headers += [('WWW-Authenticate', 'Basic realm="%s"' % 'oauth2')]
+            
         status_str = self._get_http_status_string(
                                 error_status if error_status else httplib.OK)
         if error_status:
             log.debug("Error obtaining access token: %s - %s", status_str,
                       error_description)
 
+        ##################
+        # FIXME:
+        status_str = '401 Unauthorized'
         start_response(status_str, headers)
         return [response]
 
@@ -380,16 +505,17 @@ class Oauth2ServerMiddleware(object):
         """
         Service to validate bearer tokens. It would be called from a resource
         service that trusts this authorization service.
-        @type req: webob.Request
-        @param req: HTTP request object
+        :type req: webob.Request
+        :param req: HTTP request object
 
-        @type start_response: 
-        @param start_response: WSGI start response function
+        :type start_response: 
+        :param start_response: WSGI start response function
 
-        @rtype: iterable
-        @return: WSGI response
+        :rtype: iterable
+        :return: WSGI response
         """
-        response, error_status = self._authorizationServer.check_token(req)[0:2]
+        response, error_status = self._authorization_server.check_token(
+                                                                    req)[0:2]
         if response is None:
             response = ''
         headers = [
@@ -404,78 +530,20 @@ class Oauth2ServerMiddleware(object):
         start_response(status_str, headers)
         return [response]
 
-#    def request_certificate(self, req, start_response):
-#        """
-#        Resource service to issue a certificate based on a certificate request
-#        contained in the request and the identity of the client for whom the
-#        access token was issued.
-#        @type req: webob.Request
-#        @param req: HTTP request object
-#
-#        @type start_response: 
-#        @param start_response: WSGI start response function
-#
-#        @rtype: iterable
-#        @return: WSGI response
-#        """
-#        log.debug("request_certificate called")
-#        cert = None
-#        error = None
-#        status = httplib.OK
-#        dn = req.environ.get(self.CERT_DN_ENVIRON_KEY)
-#        if dn:
-#            log.debug("Found certificate DN: %s", dn)
-#        else:
-#            # Client must be authenticated - no other error should be included
-#            # in this case.
-#            status = httplib.FORBIDDEN
-#
-#        if status == httplib.OK:
-#            (token, 
-#             status,
-#             error) = self._authorizationServer.get_registered_token(req, dn)
-#
-#        if status == httplib.OK:
-#            # Token is valid so get a certificate.
-#            cert = self._myproxy_cert_request.get_resource(token, req)
-#            if not cert:
-#                status = httplib.INTERNAL_SERVER_ERROR
-#
-#        content_dict = {'status': status}
-#        if error:
-#            content_dict['error'] = error
-#        if cert:
-#            content_dict['certificate'] = cert
-#        response = json.dumps(content_dict)
-#
-#        headers = [
-#            ('Content-Type', 'application/json; charset=UTF-8'),
-#            ('Cache-Control', 'no-store'),
-#            ('Content-length', str(len(response))),
-#            ('Pragma', 'no-store')
-#        ]
-#        status_str = self._get_http_status_string(status if status
-#                                                  else httplib.OK)
-#        if error:
-#            log.debug("Error obtaining certificate: %s - %s", status_str, error)
-#
-#        start_response(status_str, headers)
-#        return [response]
-
     @staticmethod
     def _get_http_status_string(status):
         return ("%d %s" % (status, httplib.responses[status]))
 
     def _redirect(self, url, start_response):
         """Initiates a redirect to a specified URL.
-        @type param: str
-        @param url: URL
+        :type param: str
+        :param url: URL
 
-        @type start_response: 
-        @param start_response: WSGI start response function
+        :type start_response: 
+        :param start_response: WSGI start response function
 
-        @rtype: iterable
-        @return: WSGI response
+        :rtype: iterable
+        :return: WSGI response
         """
         log.debug("Redirecting to %s", url)
         start_response(self._get_http_status_string(httplib.FOUND),
@@ -485,13 +553,13 @@ class Oauth2ServerMiddleware(object):
     def _set_configuration(self, prefix, local_conf):
         """Sets the configuration values.
 
-        @type prefix: str
-        @param prefix: optional prefix for parameter names included in the
+        :type prefix: str
+        :param prefix: optional prefix for parameter names included in the
         local_conf dict - enables these parameters to be filtered from others
         which don't apply to this middleware
 
-        @type local_conf: dict
-        @param local_conf: attribute settings to apply
+        :type local_conf: dict
+        :param local_conf: attribute settings to apply
         """
         conf = {}
         plen = len(prefix)
@@ -521,10 +589,6 @@ class Oauth2ServerMiddleware(object):
                                 conf, cls.RESOURCE_AUTHENTICATION_METHOD_OPTION)
         self.resource_register_file = cls._get_config_option(
                                 conf, cls.RESOURCE_REGISTER_OPTION)
-        self.myproxy_client_env_key = cls._get_config_option(
-                                conf, cls.MYPROXY_CLIENT_KEY_OPTION)
-        self.myproxy_global_password = cls._get_config_option(
-                                conf, cls.MYPROXY_GLOBAL_PASSWORD_OPTION)
         self.user_identifier_env_key = cls._get_config_option(
                                 conf, cls.USER_IDENTIFIER_KEY_OPTION)
         

@@ -10,8 +10,8 @@ __revision__ = "$Id$"
 import logging
 import uuid
 
-from ndg.oauth.server.lib.authorize.authorizer_interface import AuthorizerInterface
-from ndg.oauth.server.lib.oauth.oauth_exception import OauthException
+from ndg.oauth.server.lib.authorize.authorizer_interface import \
+                                                            AuthorizerInterface
 from ndg.oauth.server.lib.register.authorization_grant import AuthorizationGrant
 
 log = logging.getLogger(__name__)
@@ -33,17 +33,16 @@ class AuthorizerStoringIdentifier(AuthorizerInterface):
                 user identifier value
         """
         self.lifetime = lifetime
-        self.user_identifier_env_key = kw.get('user_identifier_env_key')
         self.user_identifier_grant_data_key = kw.get(
                                             'user_identifier_grant_data_key')
 
-    def generate_authorization_grant(self, auth_request, request):
+    def generate_authorization_grant(self, auth_request, user_identifier):
         """Generates an authorization grant.
         @type auth_request: ndg.oauth.server.lib.oauth.authorize.AuthorizeRequest
         @param auth_request: authorization request
 
-        @type request: webob.Request
-        @param request: HTTP request object
+        @type user_identifier: string
+        @param user_identifier: identifier for user granting the request
 
         @rtype: tuple (
             ndg.oauth.server.lib.register.authorization_grant.AuthorizationGrant
@@ -54,15 +53,9 @@ class AuthorizerStoringIdentifier(AuthorizerInterface):
             authorization code
         )
         """
-        user_identifier = request.environ.get(self.user_identifier_env_key)
-        if not user_identifier:
-            log.error('Could not find user identifier key "%s" in environ', 
-                      self.user_identifier_env_key)
-            raise OauthException('server_error', 
-                                 'Authorization grant could not be created')
-
         code = uuid.uuid4().hex
         additional_data = {self.user_identifier_grant_data_key: user_identifier}
         grant = AuthorizationGrant(code, auth_request, self.lifetime,
                                    additional_data=additional_data)
+        
         return grant, code

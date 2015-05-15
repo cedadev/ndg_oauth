@@ -259,6 +259,11 @@ class Oauth2Client(object):
             parameters['client_id'] = self.client_config.client_id
             parameters['client_secret'] = self.client_config.kw['client_secret']
 
+            http_basicauth_setting = (parameters['client_id'], 
+                                      parameters['client_secret'])
+        else:
+            http_basicauth_setting = None
+            
         self.additional_access_token_request_parameters(parameters, request)
         
         log.debug("Requesting access token - parameters: %s", parameters)
@@ -266,9 +271,11 @@ class Oauth2Client(object):
         
         ssl_ctx = ssl_context_util.make_ssl_context_from_config(ssl_config)
         
+        
         # Header required by, for example Github, to get a json response
         config = httpsclient_utils.Configuration(
                                         ssl_ctx,
+                                        http_basicauth=http_basicauth_setting,
                                         headers={'Accept': 'application/json'})
             
         response_json = httpsclient_utils.fetch_stream_from_url(

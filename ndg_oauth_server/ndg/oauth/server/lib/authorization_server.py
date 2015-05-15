@@ -55,7 +55,8 @@ class AuthorizationServer(object):
         self.access_token_register = AccessTokenRegister(config)
         self.authorization_grant_register = AuthorizationGrantRegister(config)
 
-    def authorize(self, request, client_authorized):
+    def authorize(self, response_type, client_id, client_authorized,
+                  user_identifier, redirect_uri=None, scope=None, state=None):
         """Handle an authorization request.
 
         It is assumed that the caller has checked whether the user is
@@ -64,23 +65,36 @@ class AuthorizationServer(object):
         Request query parameters (from 
         http://tools.ietf.org/html/draft-ietf-oauth-v2-22):
 
-        response_type
+        :param response_type:
               REQUIRED.  Value MUST be set to "code" or "token" in the case
               of an implicit grant.
-        client_id
+        :param client_id:
               REQUIRED.  The client identifier as described in Section 2.2.
-        redirect_uri
-              OPTIONAL, as described in Section 3.1.2.
-        scope
-              OPTIONAL.  The scope of the access request as described by
+
+        :type client_authorized: bool
+        :param client_authorized: true if client authorised the request
+        
+        :type user_identifier: string
+        :param user_identifier: identifier for user granting the request
+
+        :param redirect_uri: OPTIONAL, as described in Section 3.1.2.
+        :param scope: OPTIONAL.  The scope of the access request as described by
               Section 3.3.
-        state
-              RECOMMENDED.  An opaque value used by the client to maintain
+        :param state: RECOMMENDED.  An opaque value used by the client to maintain
               state between the request and callback.  The authorization
               server includes this value when redirecting the user-agent back
               to the client.  The parameter SHOULD be used for preventing
               cross-site request forgery as described in Section 10.12.
 
+        :type client_authorized: bool
+        :param client_authorized: True if resource owner has authorized client
+
+        :rtype: tuple: (str, int, str)
+        :return: tuple (
+                     redirect_uri
+                     HTTP status if error
+                     error description
+                 )
         Response:
               application/x-www-form-urlencoded format:
         code
@@ -98,42 +112,13 @@ class AuthorizationServer(object):
               REQUIRED if the "state" parameter was present in the client
               authorization request.  The exact value received from the
               client.
-
-        @type request: webob.Request
-        @param request: HTTP request object
-
-        @type client_authorized: bool
-        @param client_authorized: True if resource owner has authorized client
-
-        @rtype: tuple: (str, int, str)
-        @return: tuple (
-                     redirect_uri
-                     HTTP status if error
-                     error description
-                 )
         """
         log.debug("Starting authorization request")
 
-        # Parameters should only be taken from the query string.
-        params = request.GET
-        authz_request = AuthorizeRequest(params.get('response_type', None),
-                                         params.get('client_id', None),
-                                         params.get('redirect_uri', None),
-                                         params.get('scope', None),
-                                         params.get('state', None))
+        authz_request = AuthorizeRequest(response_type, client_id,
+                                         redirect_uri, scope, state)
 
         try:
-            self.check_request(request, params, post_only=False)
-
-            # Check for required parameters.
-            required_parameters = ['response_type', 'client_id']
-            for param in required_parameters:
-                if param not in params:
-                    log.error("Missing request parameter %s from params: %s",
-                              param, params)
-                    raise OauthException('invalid_request', 
-                                        "Missing request parameter: %s" % param)
-
             if not client_authorized:
                 raise OauthException('access_denied', 
                                      'User has declined authorization')
@@ -143,7 +128,7 @@ class AuthorizationServer(object):
                                                     authz_request.redirect_uri)
             if client_error:
                 log.error("Invalid client: %s", client_error)
-                return (None, httplib.BAD_REQUEST, client_error)
+                return None, httplib.BAD_REQUEST, client_error
 
             # redirect_uri must be included in the request if the client has
             # more than one registered.
@@ -157,8 +142,6 @@ class AuthorizationServer(object):
                         ('An authorization request has been made without a '
                         'return URI.'))
 
-            response_type = params.get('response_type', None)
-            
             # Response may be an authorisation code or in the case of an 
             # Implicit Grant a token
             if response_type == self.__class__.AUTHZ_CODE_RESP_TYPE:
@@ -167,7 +150,7 @@ class AuthorizationServer(object):
                 # Preconditions satisfied - generate grant.
                 grant, code = self.authorizer.generate_authorization_grant(
                                                                 authz_request, 
-                                                                request)
+                                                                user_identifier)
                 authz_response = AuthorizeResponse(code, authz_request.state)
     
                 if not self.authorization_grant_register.add_grant(grant):
@@ -211,17 +194,17 @@ class AuthorizationServer(object):
         """Redirects to the redirect URI after the authorization process as
         completed.
 
-        @type resp: ndg.oauth.server.lib.oauth.authorize.AuthorizeRequest
-        @param resp: OAuth authorize request
+        :type resp: ndg.oauth.server.lib.oauth.authorize.AuthorizeRequest
+        :param resp: OAuth authorize request
         
-        @type resp: ndg.oauth.server.lib.oauth.authorize.AuthorizeResponse
-        @param resp: OAuth authorize response
+        :type resp: ndg.oauth.server.lib.oauth.authorize.AuthorizeResponse
+        :param resp: OAuth authorize response
 
-        @type error: str
-        @param error: OAuth error
+        :type error: str
+        :param error: OAuth error
 
-        @type error_description: str
-        @param error_description: error description
+        :type error_description: str
+        :param error_description: error description
         """
         # Check for inconsistencies that should be reported directly to the user.
         if not authz_response and not error:
@@ -265,18 +248,18 @@ class AuthorizationServer(object):
     def _make_combined_url(base_url, parameters, state):
         """Constructs a URL from a base URL and parameters to be included in a
         query string.
-        @type base_url: str
-        @param base_url: base URL to which to add query parameters
+        :type base_url: str
+        :param base_url: base URL to which to add query parameters
 
-        @type parameters: dict
-        @param parameters: parameter names and values
+        :type parameters: dict
+        :param parameters: parameter names and values
 
-        @type state: str
-        @param state: OAuth state parameter value, which should not be URL
+        :type state: str
+        :param state: OAuth state parameter value, which should not be URL
         encoded
 
-        @rtype: str
-        @return: full URL
+        :rtype: str
+        :return: full URL
         """
         url = base_url.rstrip('?')
         url_parts = [url]
@@ -294,7 +277,9 @@ class AuthorizationServer(object):
 
         return ''.join(url_parts)
 
-    def access_token(self, request):
+    def access_token(self, params, headers):
+#     def access_token(self, client_id, client_secret, grant_type, code, 
+#                      redirect_uri):
         """
         Handles a request for an access token.
 
@@ -305,16 +290,22 @@ class AuthorizationServer(object):
         following parameters using the "application/x-www-form-urlencoded"
         format in the HTTP request entity-body:
 
-        grant_type
+        :param grant_type:
               REQUIRED.  Value MUST be set to "authorization_code".
-        code
+        :param code:
               REQUIRED.  The authorization code received from the
               authorization server.
-        redirect_uri
+        :param redirect_uri:
               REQUIRED, if the "redirect_uri" parameter was included in the
               authorization request as described in Section 4.1.1, and their
               values MUST be identical.
 
+        :rtype: tuple (str, int, str)
+        :return: tuple (
+                     OAuth JSON response
+                     HTTP status if error
+                     error description
+                 )
         Response:
               application/json format:
         access_token
@@ -325,55 +316,31 @@ class AuthorizationServer(object):
               lifetime of token in seconds
         refresh_token
 
-        @type request: webob.Request
-        @param request: HTTP request object
-
-        @rtype: tuple: (str, int, str)
-        @return: tuple (
-                     OAuth JSON response
-                     HTTP status if error
-                     error description
-                 )
         """
         log.debug("Starting access token request")
 
         try:
-            # Parameters should only be taken from the body, not the URL query 
-            # string.
-            params = request.POST
-            self.check_request(request, params, post_only=True)
-
             # Check that the client is authenticated as a registered client.
-            client_id = self.client_authenticator.authenticate(request)
-            if client_id is None:
-                log.warn('Client authentication not performed')
+            client_id = self.client_authenticator.authenticate(params, headers)
+            if client_id is not None:
+                log.debug("Authenticated client id: %s", client_id)
             else:
-                log.debug("Client id: %s", client_id)
-
-            # redirect_uri is only required if it was included in the 
-            # authorization request.
-            required_parameters = ['grant_type', 'code']
-            for param in required_parameters:
-                if param not in params:
-                    log.error("Missing request parameter %s from inputs: %s",
-                              param, params)
-                    raise OauthException(
-                                    'invalid_request', 
-                                    "Missing request parameter: %s" % param)
+                log.warn('Client authentication not performed')
 
         except OauthException, exc:
             return (self._error_access_token_response(exc.error, 
                                                       exc.error_description), 
                     None, None)
 
-        token_request = AccessTokenRequest(params.get('grant_type', None),
-                                           params.get('code', None),
-                                           params.get('redirect_uri', None))
+        token_request = AccessTokenRequest(params['grant_type'], 
+                                           params['code'], 
+                                           params['redirect_uri'])
 
         try:
             response = make_access_token(token_request, client_id, 
-                self.access_token_register, self.access_token_generator, 
-                self.authorization_grant_register)
+                                         self.access_token_register, 
+                                         self.access_token_generator, 
+                                         self.authorization_grant_register)
 
         except OauthException, exc:
             return (self._error_access_token_response(exc.error, 
@@ -388,11 +355,11 @@ class AuthorizationServer(object):
 
     def _access_token_response(self, resp):
         """Constructs the JSON response to an access token request.
-        @type resp: ndg.oauth.server.lib.oauth.access_token.AccessTokenResponse
-        @param resp: OAuth access token response
+        :type resp: ndg.oauth.server.lib.oauth.access_token.AccessTokenResponse
+        :param resp: OAuth access token response
 
-        @rtype: str
-        @return JSON formatted response
+        :rtype: str
+        :return JSON formatted response
         """
         log.debug("Responding successfully with access token.")
         content_dict = resp.get_as_dict()
@@ -401,14 +368,14 @@ class AuthorizationServer(object):
 
     def _error_access_token_response(self, error, error_description):
         """Constructs an error JSON response to an access token request.
-        @type error: str
-        @param error: OAuth error
+        :type error: str
+        :param error: OAuth error
 
-        @type error_description: str
-        @param error_description: error description
+        :type error_description: str
+        :param error_description: error description
 
-        @rtype: str
-        @return JSON formatted response
+        :rtype: str
+        :return JSON formatted response
         """
         log.error("Responding with error: %s - %s", error, error_description)
 
@@ -419,48 +386,6 @@ class AuthorizationServer(object):
 
         error_content = json.dumps(error_dict)
         return error_content
-
-    def check_request(self, request, params, post_only=False):
-        """
-        Checks that the request is valid in the following respects:
-        o Must be over HTTPS.
-        o Optionally, must use the POST method.
-        o Parameters must not be repeated.
-        If the request is directly from the client, the user must be
-        authenticated - it is assumed that the caller has checked this.
-
-        Raises OauthException if any check fails.
-
-        @type request: webob.Request
-        @param request: HTTP request object
-
-        @type params: dict
-        @param params: request parameters
-
-        @type post_only: bool
-        @param post_only: True if the HTTP method must be POST, otherwise False
-
-        """
-        if request.scheme != 'https':
-            raise OauthException('invalid_request', 
-                                 'Transport layer security must be used for '
-                                 'this request.')
-
-        if post_only and request.method != 'POST':
-            raise OauthException('invalid_request', 
-                                 'HTTP POST method must be used for this '
-                                 'request.')
-
-        # Check for duplicate parameters.
-        param_counts = {}
-        for key in params.iterkeys():
-            count = param_counts.get(key, 0)
-            param_counts[key] = count + 1
-
-        for key, count in param_counts.iteritems():
-            if count > 1:
-                raise OauthException('invalid_request', 
-                                     'Parameter "%s" is repeated.' % key)
 
     def check_token(self, request, scope=None):
         """
@@ -488,14 +413,14 @@ class AuthorizationServer(object):
               error as described in
               http://tools.ietf.org/html/draft-ietf-oauth-v2-22#section-5.2
 
-        @type request: webob.Request
-        @param request: HTTP request object
+        :type request: webob.Request
+        :param request: HTTP request object
 
-        @type scope: str
-        @param scope: required scope
+        :type scope: str
+        :param scope: required scope
 
-        @rtype: tuple: (str, int, str)
-        @return: tuple (
+        :rtype: tuple: (str, int, str)
+        :return: tuple (
                      OAuth JSON response
                      HTTP status
                      error description
@@ -522,6 +447,7 @@ class AuthorizationServer(object):
                 required_scope = params.get('scope', None)
             token, error = self.access_token_register.get_token(access_token,
                                                                 required_scope)
+
         # Formulate response
         status = {'invalid_request': httplib.BAD_REQUEST,
                   'invalid_token': httplib.FORBIDDEN,
@@ -532,7 +458,8 @@ class AuthorizationServer(object):
             content_dict['error'] = error
         else:
             # TODO only get additional data when resource is allowed to
-            content_dict['user_name'] = token.grant.additional_data.get('user_identifier')
+            content_dict['user_name'] = token.grant.additional_data.get(
+                                                            'user_identifier')
 
         content = json.dumps(content_dict)
         return (content, status, error)
@@ -557,14 +484,14 @@ class AuthorizationServer(object):
               error as described in
               http://tools.ietf.org/html/draft-ietf-oauth-v2-22#section-5.2
 
-        @type request: webob.Request
-        @param request: HTTP request object
+        :type request: webob.Request
+        :param request: HTTP request object
 
-        @type scope: str
-        @param scope: required scope
+        :type scope: str
+        :param scope: required scope
 
-        @rtype: tuple: (str, int, str)
-        @return: tuple (
+        :rtype: tuple: (str, int, str)
+        :return: tuple (
                      access token
                      HTTP status
                      error description
@@ -606,10 +533,10 @@ class AuthorizationServer(object):
 
     def is_registered_client(self, request):
         """Determines whether the client ID in the request is registered.
-        @type request: WebOb.request
-        @param request: request
-        @rtype: tuple (basestring, basestring) or (NoneType, NoneType)
-        @return: (error, error description) or None if client ID is found and
+        :type request: WebOb.request
+        :param request: request
+        :rtype: tuple (basestring, basestring) or (NoneType, NoneType)
+        :return: (error, error description) or None if client ID is found and
         registered
         """
         client_id = request.params.get('client_id', None)

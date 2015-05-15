@@ -26,13 +26,13 @@ class AuthorizerInterface(object):
         pass
 
     @abstractmethod
-    def generate_authorization_grant(self, auth_request, request):
+    def generate_authorization_grant(self, auth_request, user_identifier):
         """Generates an authorization grant.
         @type auth_request: ndgoauthserver.lib.oauth.authorize.AuthorizeRequest
         @param auth_request: authorization request
 
-        @type request: webob.Request
-        @param request: HTTP request object
+        @type user_identifier: string
+        @param user_identifier: identifier for user granting the request
 
         @rtype: tuple (
             ndgoauthserver.lib.register.authorization_grant.AuthorizationGrant
