@@ -79,6 +79,9 @@ setup(
         "ndg_httpsclient",
         "pyasn1",
     ],
+    extras_require = {
+        'test-services': ['Genshi==0.6']
+    },
     packages =find_packages(),
     package_data =      {
         'ndg.oauth.client.templates': [

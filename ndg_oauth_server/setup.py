@@ -96,7 +96,6 @@ setup(
         "repoze.who",
         "Genshi",
     ],
-    extras_require = {'slcs_support': 'MyProxyClient'},
     packages = find_packages(),
     package_data =      {
         'ndg.oauth.server.templates': [
@@ -117,6 +116,9 @@ setup(
         'ndg.oauth.server.examples.shared_config': [
             'README', 'pki/*.pem', 'pki/ca/*.0'
         ]
+    },
+    extras_require = {
+        'test-services': ['Genshi==0.6']
     },
     zip_safe = False,
     classifiers = [

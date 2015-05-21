@@ -11,6 +11,8 @@ import json
 import logging
 import urllib
 import uuid
+import httplib
+from urllib2 import HTTPError
 
 from ndg.httpsclient import utils as httpsclient_utils
 from ndg.httpsclient import ssl_context_util
@@ -270,13 +272,19 @@ class Oauth2Client(object):
         config = httpsclient_utils.Configuration(
                                         ssl_ctx,
                                         headers={'Accept': 'application/json'})
-            
-        response_json = httpsclient_utils.fetch_stream_from_url(
+        try:   
+            response_json = httpsclient_utils.fetch_stream_from_url(
                                     self.client_config.access_token_endpoint,
                                     config,
                                     data)
-        
+        except HTTPError as http_error:
+            # Expect 400 code if a client error occurred or 500 for server-side
+            # problem.  Either way, the following if block should handle this
+            if http_error.code == httplib.BAD_REQUEST:
+                response_json = http_error.fp
+
         response = json.load(response_json)
+            
         access_token = response.get('access_token', None)
         if 'error' in response:
             error = response['error']

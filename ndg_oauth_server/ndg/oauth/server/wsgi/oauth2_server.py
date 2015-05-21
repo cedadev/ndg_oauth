@@ -19,8 +19,6 @@ from webob import Request
 
 from ndg.oauth.server.lib.access_token.bearer_token_generator import \
     BearerTokenGenerator
-from ndg.oauth.server.lib.access_token.myproxy_cert_token_generator \
-    import MyProxyCertTokenGenerator
 from ndg.oauth.server.lib.authenticate.certificate_authenticator \
     import CertificateAuthenticator
 from ndg.oauth.server.lib.authenticate.noop_authenticator import \
@@ -30,8 +28,6 @@ from ndg.oauth.server.lib.authenticate.password_authenticator \
 from ndg.oauth.server.lib.authorization_server import AuthorizationServer
 from ndg.oauth.server.lib.authorize.authorizer_storing_identifier import \
     AuthorizerStoringIdentifier
-from ndg.oauth.server.lib.resource_request.myproxy_cert_request import \
-    MyproxyCertRequest
 from ndg.oauth.server.lib.register.client import ClientRegister
 from ndg.oauth.server.lib.register.resource import ResourceRegister
 
@@ -124,18 +120,6 @@ class Oauth2ServerMiddleware(object):
             access_token_generator = BearerTokenGenerator(
                                         self.access_token_lifetime_seconds, 
                                         self.access_token_type)
-            
-        elif self.access_token_type == 'slcs':
-            # Configure authorization server to use MyProxy certificates as 
-            # access tokens.
-            access_token_generator = MyProxyCertTokenGenerator(
-                self.access_token_lifetime_seconds, 
-                self.access_token_type,
-                certificate_request_parameter=self.certificate_request_parameter,
-                myproxy_client_env_key=self.myproxy_client_env_key,
-                myproxy_global_password=self.myproxy_global_password,
-                user_identifier_grant_data_key=\
-                    self.USER_IDENTIFIER_GRANT_DATA_KEY)
         else:
             raise ValueError("Invalid configuration value %s for %s" %
                              (self.access_token_type,
@@ -165,12 +149,6 @@ class Oauth2ServerMiddleware(object):
             client_register, authorizer, client_authenticator,
             resource_register, resource_authenticator,
             access_token_generator, conf)
-
-        self._myproxy_cert_request = MyproxyCertRequest(
-            certificate_request_parameter=self.certificate_request_parameter,
-            myproxy_client_env_key=self.myproxy_client_env_key,
-            myproxy_global_password=self.myproxy_global_password,
-            user_identifier_grant_data_key=self.USER_IDENTIFIER_GRANT_DATA_KEY)
 
     def _get_authenticator(self, name, register, typ, option_name):
         """Returns new authenticator by name"""
@@ -403,64 +381,6 @@ class Oauth2ServerMiddleware(object):
 
         start_response(status_str, headers)
         return [response]
-
-#    def request_certificate(self, req, start_response):
-#        """
-#        Resource service to issue a certificate based on a certificate request
-#        contained in the request and the identity of the client for whom the
-#        access token was issued.
-#        @type req: webob.Request
-#        @param req: HTTP request object
-#
-#        @type start_response: 
-#        @param start_response: WSGI start response function
-#
-#        @rtype: iterable
-#        @return: WSGI response
-#        """
-#        log.debug("request_certificate called")
-#        cert = None
-#        error = None
-#        status = httplib.OK
-#        dn = req.environ.get(self.CERT_DN_ENVIRON_KEY)
-#        if dn:
-#            log.debug("Found certificate DN: %s", dn)
-#        else:
-#            # Client must be authenticated - no other error should be included
-#            # in this case.
-#            status = httplib.FORBIDDEN
-#
-#        if status == httplib.OK:
-#            (token, 
-#             status,
-#             error) = self._authorizationServer.get_registered_token(req, dn)
-#
-#        if status == httplib.OK:
-#            # Token is valid so get a certificate.
-#            cert = self._myproxy_cert_request.get_resource(token, req)
-#            if not cert:
-#                status = httplib.INTERNAL_SERVER_ERROR
-#
-#        content_dict = {'status': status}
-#        if error:
-#            content_dict['error'] = error
-#        if cert:
-#            content_dict['certificate'] = cert
-#        response = json.dumps(content_dict)
-#
-#        headers = [
-#            ('Content-Type', 'application/json; charset=UTF-8'),
-#            ('Cache-Control', 'no-store'),
-#            ('Content-length', str(len(response))),
-#            ('Pragma', 'no-store')
-#        ]
-#        status_str = self._get_http_status_string(status if status
-#                                                  else httplib.OK)
-#        if error:
-#            log.debug("Error obtaining certificate: %s - %s", status_str, error)
-#
-#        start_response(status_str, headers)
-#        return [response]
 
     @staticmethod
     def _get_http_status_string(status):

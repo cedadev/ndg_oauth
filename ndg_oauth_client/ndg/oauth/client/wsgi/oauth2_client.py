@@ -9,6 +9,7 @@ __revision__ = "$Id$"
 
 import httplib
 import logging
+import os
 
 from webob import Request
 
@@ -21,6 +22,8 @@ from ndg.oauth.client.lib.render.factory import callModuleObject
 from ndg.oauth.client.lib.render.renderer_interface import RendererInterface
 
 log = logging.getLogger(__name__)
+THIS_DIR = os.path.dirname(__file__)
+DEF_TMPL_FILEPATH = os.path.join(os.path.dirname(THIS_DIR), 'templates')
 
 
 class Oauth2ClientMiddlewareSessionError(Exception):
@@ -46,7 +49,8 @@ class Oauth2ClientMiddleware(object):
                                       AUTHENTICATION_TRIGGER_UNAUTHORIZED,
                                       AUTHENTICATION_TRIGGER_URL]
     AUTHENTICATION_URL_OPTION = 'authentication_url'
-    AUTHENTICATION_COMPLETE_OPTION = 'login_complete'
+    ERROR_TMPL_FILEPATH_OPTION = 'error_tmpl_filepath'
+    AUTHENTICATION_COMPLETE_OPTION = 'authentication_complete_tmpl_filepath'
     BASE_URL_PATH_OPTION = 'base_url_path'
     CERTIFICATE_REQUEST_PARAMETER_OPTION = 'certificate_request_parameter'
     REDIRECT_URI = 'oauth_redirect'
@@ -66,7 +70,10 @@ class Oauth2ClientMiddleware(object):
     
     PROPERTY_DEFAULTS = {
         ACCESS_TOKEN_TYPE_OPTION: 'bearer',
-        AUTHENTICATION_COMPLETE_OPTION: '',
+        ERROR_TMPL_FILEPATH_OPTION: os.path.join(DEF_TMPL_FILEPATH, 
+                                                 'error.html'),
+        AUTHENTICATION_COMPLETE_OPTION: os.path.join(DEF_TMPL_FILEPATH, 
+                                                 'login_complete.html'),
         AUTHENTICATION_TRIGGER_OPTION: AUTHENTICATION_TRIGGER_ALWAYS,
         AUTHENTICATION_URL_OPTION: 'oauth_authenticate',
         BASE_URL_PATH_OPTION: '',
@@ -182,9 +189,12 @@ class Oauth2ClientMiddleware(object):
         # Check whether redirecting back after requesting authorization.
         redirect_url = None
         if self.client_config.is_redirect_uri(req.application_url, req.url):
-            log.debug("Redirected back after requesting authorization.")
-            is_redirect_back = True
             token = self._get_token_after_redirect(session, req)
+            if token:
+                # Only set redirect if token was successfully retrieved
+                is_redirect_back = True
+                log.debug("Redirected back after requesting authorization.")
+
             original_environ = session[self.__class__.SESSION_CALL_CONTEXT_KEY]
         else:
             # Start the OAuth2 transaction to get a token.
@@ -220,10 +230,19 @@ class Oauth2ClientMiddleware(object):
                     return []
                 else:
                     return start_response(status, response_headers, exc_info)
-
+        else:
+            response = self.renderer.render(self.error_tmpl_filepath,
+                            self._renderingConfiguration.merged_parameters(c))
+            
+            start_response(httplib.FORBIDDEN, 
+                           [('Content-type', 'text/html'),
+                            ('Content-length', str(len(response)))
+                            ])
+            return [response]
+            
         if is_authentication_url:
             c = {'baseURL': req.application_url}
-            response = self.renderer.render(self.authentication_complete,
+            response = self.renderer.render(self.authentication_complete_tmpl_filepath,
                             self._renderingConfiguration.merged_parameters(c))
             
             start_response(self._get_http_status_string(httplib.OK),
@@ -234,15 +253,15 @@ class Oauth2ClientMiddleware(object):
             return [response]
 
         # Ensure that the URL is that prior to authentication redirection.
-        if is_redirect_back:
+        elif is_redirect_back:
             original_url = original_environ['url']
             log.debug("Redirecting to %s", original_url)
             start_response(self._get_http_status_string(httplib.FOUND),
                            [('Location', original_url)])
             return []
-
-        app_iter = self._app(environ, local_start_response)
-        return app_iter
+        else:
+            app_iter = self._app(environ, local_start_response)
+            return app_iter
 
     def _set_configuration(self, prefix, local_conf):
         """Sets the configuration values.
@@ -257,8 +276,12 @@ class Oauth2ClientMiddleware(object):
         cls = self.__class__
         self.access_token_type = cls._get_config_option(prefix, local_conf,
                                                 cls.ACCESS_TOKEN_TYPE_OPTION)
-        self.authentication_complete = cls._get_config_option(prefix,
-                                local_conf, cls.AUTHENTICATION_COMPLETE_OPTION)
+        
+        self.error_tmpl_filepath = cls._get_config_option(
+                        prefix, local_conf, cls.ERROR_TMPL_FILEPATH_OPTION)
+        
+        self.authentication_complete_tmpl_filepath = cls._get_config_option(
+                        prefix, local_conf, cls.AUTHENTICATION_COMPLETE_OPTION)
         
         self.authentication_trigger = cls._get_config_option(
                 prefix, local_conf, cls.AUTHENTICATION_TRIGGER_OPTION).lower()

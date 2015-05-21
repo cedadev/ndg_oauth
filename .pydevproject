@@ -1,16 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<?eclipse-pydev version="1.0"?>
-
-<pydev_project>
-<pydev_property name="org.python.pydev.PYTHON_PROJECT_INTERPRETER">ndg_oauth Python 2.7</pydev_property>
+<?eclipse-pydev version="1.0"?><pydev_project>
+<pydev_property name="org.python.pydev.PYTHON_PROJECT_INTERPRETER">ndg-oauth-py2.7</pydev_property>
 <pydev_property name="org.python.pydev.PYTHON_PROJECT_VERSION">python 2.7</pydev_property>
-<pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
-<path>/Users/philipkershaw/Documents/workspace/ndg_httpsclient</path>
-<path>/Users/philipkershaw/Documents/workspace/MyProxyClient</path>
-<path>/Users/philipkershaw/Documents/workspace/MyProxyWebService</path>
-<path>/Users/philipkershaw/Documents/workspace/online_ca_service</path>
-<path>/Users/philipkershaw/Documents/workspace/CertificateAuthority</path>
-</pydev_pathproperty>
+
 <pydev_pathproperty name="org.python.pydev.PROJECT_SOURCE_PATH">
 <path>/ndg_oauth/ndg_oauth_server</path>
 <path>/ndg_oauth/ndg_oauth_client</path>
