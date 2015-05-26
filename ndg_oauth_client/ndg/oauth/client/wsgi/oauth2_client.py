@@ -14,9 +14,11 @@ import os
 from webob import Request
 
 from ndg.httpsclient.ssl_context_util import SSlContextConfig
-from ndg.oauth.client.lib.oauth2client import Oauth2Client
-from ndg.oauth.client.lib.oauth2client import Oauth2ClientConfig
-from ndg.oauth.client.lib.oauth2_myproxy_client import Oauth2MyProxyClient
+from ndg.oauth.client.lib.oauth2client import (
+                                        Oauth2Client, 
+                                        Oauth2ClientConfig,
+                                        Oauth2ClientAccessTokenRetrievalError,
+                                        TokenRetrieverInterface)
 from ndg.oauth.client.lib.render.configuration import RenderingConfiguration
 from ndg.oauth.client.lib.render.factory import callModuleObject
 from ndg.oauth.client.lib.render.renderer_interface import RendererInterface
@@ -58,6 +60,7 @@ class Oauth2ClientMiddleware(object):
     SCOPE_OPTION = 'scope'
     SESSION_KEY_OPTION = 'session_key'
     SESSION_CALL_CONTEXT_KEY = 'oauth2_call_context'
+    SESSION_ACCESS_TOKEN_REQ_FAILURE_KEY = 'oauth2_access_token_req_failure'
     TOKEN_KEY_OPTION = 'oauth2_token_key'
     CLIENT_CERT_OPTION = 'client_cert'
     CLIENT_KEY_OPTION = 'client_key'
@@ -120,14 +123,14 @@ class Oauth2ClientMiddleware(object):
         """
         self._app = app
         self._set_configuration(prefix, local_conf)
-        if self.access_token_type == 'slcs':
-            log.debug("Setting client as Oauth2MyProxyClient (SLCS)")
-            self._oauth_client_class = Oauth2MyProxyClient
-            self._token_retriever_class = MyProxyTokenRetriever
-        else:
+        if self.access_token_type == 'bearer':
             log.debug("Setting client as Oauth2Client (Bearer token)")
             self._oauth_client_class = Oauth2Client
             self._token_retriever_class = TokenRetriever
+        else:
+            raise Oauth2ClientMiddlewareConfigOptError("Access token type %r "
+                                                       "not recognised" % 
+                                                       self.access_token_type)
 
         self._renderingConfiguration = RenderingConfiguration(
                                                     self.LAYOUT_PARAMETERS,
@@ -164,8 +167,8 @@ class Oauth2ClientMiddleware(object):
         session = environ.get(self.session_env_key)
         if session is None:
             raise Oauth2ClientMiddlewareSessionError(
-                'Oauth2ClientMiddleware.__call__: No beaker session key '
-                '"%s" found in environ' % self.session_env_key)
+                    'Oauth2ClientMiddleware.__call__: No beaker session key '
+                    '"%s" found in environ' % self.session_env_key)
 
         # Determine trigger for starting authentication process.
         authenticate_before_delegating = False
@@ -189,11 +192,26 @@ class Oauth2ClientMiddleware(object):
         # Check whether redirecting back after requesting authorization.
         redirect_url = None
         if self.client_config.is_redirect_uri(req.application_url, req.url):
-            token = self._get_token_after_redirect(session, req)
-            if token:
-                # Only set redirect if token was successfully retrieved
-                is_redirect_back = True
-                log.debug("Redirected back after requesting authorization.")
+            try:
+                token = self._get_token_after_redirect(session, req)
+                
+            except Oauth2ClientAccessTokenRetrievalError as \
+                                                access_token_retrieval_error:
+                log.error("%r response from OAuth 2.0 authorization "
+                          "server: %r", 
+                          access_token_retrieval_error.error,
+                          access_token_retrieval_error.error_description)
+                
+                session[self.__class__.SESSION_ACCESS_TOKEN_REQ_FAILURE_KEY
+                        ] = access_token_retrieval_error
+                session.save()
+                
+                app_iter = self._app(environ, start_response)
+                return app_iter
+
+            # Only set redirect if token was successfully retrieved
+            is_redirect_back = True
+            log.debug("Redirected back after requesting authorization.")
 
             original_environ = session[self.__class__.SESSION_CALL_CONTEXT_KEY]
         else:
@@ -230,19 +248,11 @@ class Oauth2ClientMiddleware(object):
                     return []
                 else:
                     return start_response(status, response_headers, exc_info)
-        else:
-            response = self.renderer.render(self.error_tmpl_filepath,
-                            self._renderingConfiguration.merged_parameters(c))
-            
-            start_response(httplib.FORBIDDEN, 
-                           [('Content-type', 'text/html'),
-                            ('Content-length', str(len(response)))
-                            ])
-            return [response]
             
         if is_authentication_url:
             c = {'baseURL': req.application_url}
-            response = self.renderer.render(self.authentication_complete_tmpl_filepath,
+            response = self.renderer.render(
+                            self.authentication_complete_tmpl_filepath,
                             self._renderingConfiguration.merged_parameters(c))
             
             start_response(self._get_http_status_string(httplib.OK),
@@ -402,6 +412,7 @@ class Oauth2ClientMiddleware(object):
                                                                 self.ssl_config)
             # Save client state, which includes the token.
             session.save()
+            
             # Save only marks the session for persistence at the end of the HTTP
             # transaction. Persist now so that it is available if a new request
             # is made from nested middleware.
@@ -413,49 +424,17 @@ class Oauth2ClientMiddleware(object):
                                                      "for session.")
 
 
-class TokenRetriever(object):
+class TokenRetriever(TokenRetrieverInterface):
     def __init__(self, client):
         self.client = client
 
-    def __call__(self, access_token, error, error_description):
+    def __call__(self, access_token):
         """
         Returns authorization token.
         @type access_token: type of access token
         @param access_token: access token
-        @type error: str
-        @param error: OAuth error string
-        @type error_description: str
-        @param error_description: error description
         @rtype: type of access token
         @return: access token
         """
-        if error:
-            return None
         return self.client.access_token
 
-
-class MyProxyTokenRetriever(object):
-    def __init__(self, client):
-        self.client = client
-
-    def __call__(self, access_token, error, error_description):
-        """
-        Returns the private key and certificate.
-        This depends on Oauth2MyProxyClient which sets the private key in the
-        client.
-        @type access_token: type of access token
-        @param access_token: access token
-        @type error: str
-        @param error: OAuth error string
-        @type error_description: str
-        @param error_description: error description
-        @rtype: tuple (str, str)
-        @return: tuple (
-            private key
-            access token
-        )
-        """
-        if error:
-            return None
-#            return ("", ("Token not available because of error: %s - %s" % (error, error_description)))
-        return self.client.private_key, self.client.access_token

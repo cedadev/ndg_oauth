@@ -62,9 +62,11 @@ class OAuthClientTestAppBase(object):
         elif self.app is not None:
             return self.app(environ, start_response)
         else:
+            response = "ndg_oauth WSGI Test Application: invalid URI"
             start_response('404 Not Found', 
-                           [('Content-type', 'text/plain; charset=UTF-8')])
-            return "ndg_oauth WSGI Test Application: invalid URI"
+                           [('Content-type', 'text/plain; charset=UTF-8'),
+                            ('Content-length', str(len(response)))])
+            return [response]
 
     def default(self, environ, start_response):
         log.debug('%s.default ...', self.__class__.__name__)
@@ -151,7 +153,7 @@ class BearerTokOAuthClientApp(OAuthClientTestAppBase):
             
 class SlcsExampleOAuthClientApp(OAuthClientTestAppBase):
     '''Extend basic OAuth client demonstration application to illustrate
-    retrieving a a certificate from a Short-Lived Credential Service.
+    retrieving a certificate from a Short-Lived Credential Service.
     '''
     DEFAULT_CERTIFICATE_REQUEST_PARAMETER = 'certificate_request'
     
