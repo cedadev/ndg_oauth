@@ -437,4 +437,3 @@ class TokenRetriever(TokenRetrieverInterface):
         @return: access token
         """
         return self.client.access_token
-
