@@ -319,33 +319,38 @@ class AuthorizationServer(object):
         """
         log.debug("Starting access token request")
 
+        error_status = None
         try:
             # Check that the client is authenticated as a registered client.
-            client_id = self.client_authenticator.authenticate(params, headers)
-            if client_id is not None:
-                log.debug("Authenticated client id: %s", client_id)
+            client_id = self.client_authenticator.authenticate(request)
+            if client_id is None:
+                log.warn('Client authentication not performed')
+                error_status = httplib.FORBIDDEN
             else:
                 log.warn('Client authentication not performed')
 
         except OauthException, exc:
+            # Assume client error 
+            if error_status is None:
+                error_status = httplib.BAD_REQUEST
+                
             return (self._error_access_token_response(exc.error, 
                                                       exc.error_description), 
-                    None, None)
+                    error_status, exc.error_description)
 
         token_request = AccessTokenRequest(params['grant_type'], 
                                            params['code'], 
                                            params['redirect_uri'])
 
         try:
-            response = make_access_token(token_request, client_id, 
-                                         self.access_token_register, 
-                                         self.access_token_generator, 
-                                         self.authorization_grant_register)
+            response = make_access_token(
+                token_request, client_id, self.access_token_register,
+                self.access_token_generator, self.authorization_grant_register)
 
         except OauthException, exc:
             return (self._error_access_token_response(exc.error, 
                                                       exc.error_description), 
-                    None, None)
+                    None, exc.error_description)
 
         if response:
             return self._access_token_response(response), None, None

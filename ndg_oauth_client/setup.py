@@ -63,13 +63,13 @@ The examples should be used in conjunction with the ndg_oauth_server package.
 
 setup(
     name =                      'ndg_oauth_client',
-    version =                   '0.5.1',
+    version =                   '0.6.0',
     description =               'OAuth 2.0 client',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
     maintainer =         	    'Philip Kershaw',
     maintainer_email =          'Philip.Kershaw@stfc.ac.uk',
-    #url ='',
+    url =                       'https://github.com/cedadev/ndg_oauth/',
     license =                   'BSD - See LICENCE file for details',
     install_requires =[
         "PasteScript",
@@ -79,6 +79,9 @@ setup(
         "ndg_httpsclient",
         "pyasn1",
     ],
+    extras_require = {
+        'test-services': ['Genshi==0.6']
+    },
     packages =find_packages(),
     package_data =      {
         'ndg.oauth.client.templates': [

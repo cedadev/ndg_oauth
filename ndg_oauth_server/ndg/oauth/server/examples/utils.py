@@ -23,8 +23,8 @@ CACERT_DIR = path.join(PKI_DIR, 'ca')
 
 
 def serve_app(config_filepath):     
-    defCertFilePath = path.join(PKI_DIR, 'host.pem')
-    defPriKeyFilePath = path.join(PKI_DIR, 'host.pem')
+    defCertFilePath = path.join(PKI_DIR, 'localhost.pem')
+    defPriKeyFilePath = path.join(PKI_DIR, 'localhost.pem')
         
     parser = optparse.OptionParser()
     parser.add_option("-p",
@@ -62,7 +62,7 @@ def serve_app(config_filepath):
                       "--with-ssl-client-auth",
                       dest="ssl_client_authn",
                       action='store_true',
-                      default=True,
+                      default=False,
                       help="Set client authentication with SSL (requires -s "
                            "option")
     
@@ -70,14 +70,10 @@ def serve_app(config_filepath):
     config_filepath = path.abspath(opt.configFilePath)
     
     if opt.with_ssl.lower() == 'true':
-        ssl_context = SSL.Context(SSL.SSLv23_METHOD)
+        ssl_context = SSL.Context(SSL.TLSv1_METHOD)
     
-        ssl_context.set_session_id('oauthserver')
         ssl_context.use_privatekey_file(opt.priKeyFilePath)
         ssl_context.use_certificate_file(opt.certFilePath)
-        
-        ssl_context.load_verify_locations(None, CACERT_DIR)
-        ssl_context.set_verify_depth(9)
         
         # Load the application from the Paste ini file configuration        
         fileConfig(config_filepath, 
@@ -85,6 +81,9 @@ def serve_app(config_filepath):
         app = loadapp('config:%s' % config_filepath)
         
         if opt.ssl_client_authn:
+            ssl_context.load_verify_locations(None, CACERT_DIR)
+            ssl_context.set_verify_depth(9)
+        
             # Wrap the application in middleware to set the SSL client certificate 
             # obtained from the SSL handshake in environ                
             app = OpenSSLVerifyCallbackMiddleware(app)

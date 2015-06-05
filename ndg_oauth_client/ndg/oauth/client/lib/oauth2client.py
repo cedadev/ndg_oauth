@@ -1,16 +1,19 @@
-"""OAuth 2.0 WSGI server middleware providing MyProxy certificates as access tokens
+"""OAuth 2.0 client
 """
+from _pyio import __metaclass__
 __author__ = "R B Wilkinson"
 __date__ = "09/12/11"
 __copyright__ = "(C) 2011 Science and Technology Facilities Council"
 __license__ = "BSD - see LICENSE file in top-level directory"
 __contact__ = "Philip.Kershaw@stfc.ac.uk"
 __revision__ = "$Id$"
-
+from abc import ABCMeta, abstractmethod
 import json
 import logging
 import urllib
 import uuid
+import httplib
+from urllib2 import HTTPError
 
 from ndg.httpsclient import utils as httpsclient_utils
 from ndg.httpsclient import ssl_context_util
@@ -23,6 +26,14 @@ class Oauth2ClientError(Exception):
     
 class Oauth2ClientConfigError(Oauth2ClientError):
     '''OAuth 2.0 Client configuration error'''
+    
+class Oauth2ClientAccessTokenRetrievalError(Oauth2ClientError):
+    '''OAuth 2.0 Client failed to retrieve token from OAuth 2.0 server'''
+    def __init__(self, error, error_description):
+        self.error = error
+        self.error_description = error_description
+        
+        super(Oauth2ClientAccessTokenRetrievalError, self).__init__(error)
     
     
 class Oauth2ClientConfig(object):
@@ -137,7 +148,8 @@ class Oauth2Client(object):
             for k, v in client_config.kw.iteritems():
                 setattr(self, k, v)
         
-    def call_with_access_token(self, scope, application_url, callback):
+    def call_with_access_token(self, scope, application_url, 
+                               token_retriever_cb):
         """Calls a specified callable providing an access token.
         
         @type scope: str
@@ -146,21 +158,21 @@ class Oauth2Client(object):
         @type application_url: str
         @param application_url: application base URL
 
-        @type callback: callable called with arguments
-            (access_token, error, error_description)
-        @param callback: callable to call when the token is available
+        @type token_retriever_cb: callable called with argument access_token
+        @param token_retriever_cb: callable to call when the token is available
 
         @rtype: tuple (
             result (None if not obtained yet)
             redirect URL (None if access token already obtained)
         )
-        @return: return value from callback if access token available or a
-            URL to which to redirect to obtain an access token
+        @return: return value from token_retriever_cb if access token available 
+        or a URL to which to redirect to obtain an access token
         """
         if self.access_token is not None:
             log.debug("call_with_access_token: token found")
-            result = callback(self.access_token, None, None)
+            result = token_retriever_cb(self.access_token)
             return (result, None)
+        
         log.debug("call_with_access_token: token not found")
 
         # Client does not have an access token, so create redirect URI with
@@ -178,24 +190,25 @@ class Oauth2Client(object):
         log.debug("call_with_access_token parameters: %s", parameters)
         url = self._make_combined_url(self.client_config.authorization_endpoint, 
                                       parameters, self.state)
-        return (None, url)
+        return None, url
 
-    def call_with_access_token_redirected_back(self, request, callback,
+    def call_with_access_token_redirected_back(self, request, 
+                                               token_retriever_cb,
                                                ssl_config):
         """Called after redirection following authorization process.
 
         @type request: webob.Request
         @param request: request object
 
-        @type callback: callable called with arguments
+        @type token_retriever_cb: callable called with arguments
             (access_token, error, error_description)
-        @param callback: callable to call when the token is available
+        @param token_retriever_cb: callable to call when the token is available
 
         @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
         @param ssl_config: SSL configuration
 
         @rtype: any
-        @return: result from callback
+        @return: result from token_retriever_cb
         """
         params = request.GET
         code = params.get('code', None)
@@ -203,9 +216,10 @@ class Oauth2Client(object):
         error = params.get('error', None)
         error_description = params.get('error_description', None)
         if error:
-            log.info("Error from OAuth authorization server: %s - %s",
-                     error, error_description)
-            return callback(None, error, error_description)
+            log.error("Error from OAuth authorization server: %s - %s",
+                      error, error_description)
+            raise Oauth2ClientAccessTokenRetrievalError(error, 
+                                                        error_description)
         else:
             if state != self.state:
                 error = 'Inconsistent state'
@@ -213,16 +227,18 @@ class Oauth2Client(object):
                     'State value incorrect implying request is not the result '
                     'of legitimate OAuth redirection.')
                 
-                log.info("Erroneous request to redirect URL: %s - %s",
-                         error, error_description)
-                return callback(None, error, error_description)
+                log.error("Erroneous request to redirect URL: %s - %s",
+                          error, error_description)
+                raise Oauth2ClientAccessTokenRetrievalError(error, 
+                                                            error_description)
             else:
                 log.debug("Valid redirect from OAuth authorization server")
                 return self.request_access_token(code, request.application_url,
-                                                 request, callback, ssl_config)
+                                                 request, token_retriever_cb, 
+                                                 ssl_config)
 
-    def request_access_token(self, code, application_url, request, callback,
-                             ssl_config):
+    def request_access_token(self, code, application_url, request, 
+                             token_retriever_cb, ssl_config):
         """
         @type code: str
         @param code: authorization code
@@ -233,15 +249,15 @@ class Oauth2Client(object):
         @type request: webob.Request
         @param request: request object
 
-        @type callback: callable called with arguments
+        @type token_retriever_cb: callable called with arguments
             (access_token, error, error_description)
-        @param callback: callable to call when the token is available
+        @param token_retriever_cb: callable to call when the token is available
 
         @type ssl_config: ndg.httpsclient.ssl_context_util.SSlContextConfig
         @param ssl_config: SSL configuration
 
         @rtype: any
-        @return: result from callback
+        @return: result from token_retriever_cb
         """
         # Make POST request to obtain an access token.
         redirect_uri = self.client_config.make_redirect_uri(application_url)
@@ -277,13 +293,19 @@ class Oauth2Client(object):
                                         ssl_ctx,
                                         http_basicauth=http_basicauth_setting,
                                         headers={'Accept': 'application/json'})
-            
-        response_json = httpsclient_utils.fetch_stream_from_url(
+        try:   
+            response_json = httpsclient_utils.fetch_stream_from_url(
                                     self.client_config.access_token_endpoint,
                                     config,
                                     data)
-        
+        except HTTPError as http_error:
+            # Expect 400 code if a client error occurred or 500 for server-side
+            # problem.  Either way, the following if block should handle this
+            if http_error.code == httplib.BAD_REQUEST:
+                response_json = http_error.fp
+
         response = json.load(response_json)
+            
         access_token = response.get('access_token', None)
         if 'error' in response:
             error = response['error']
@@ -292,20 +314,23 @@ class Oauth2Client(object):
             log.error('Access token request error: %s %s', error, 
                       error_description)
             
-            return callback(None, error, error_description)
+            raise Oauth2ClientAccessTokenRetrievalError(error, 
+                                                        error_description)
+
         
         elif access_token is None:
             error = 'invalid_request'
             error_description = ('Error retrieving access token - '
                                  'no access token returned.')
             
-            return callback(None, error, error_description)
+            raise Oauth2ClientAccessTokenRetrievalError(error, 
+                                                        error_description)
         else:
             self.access_token = access_token.encode(self.ACCESS_TOK_ENCODING)
             
             log.debug("Access token received: %s", self.access_token)
             
-            return callback(self.access_token, None, None)
+            return token_retriever_cb(self.access_token)
 
     def additional_access_token_request_parameters(self, parameters, request):
         """
@@ -443,3 +468,14 @@ class Oauth2Client(object):
             
             if client_instance_id in cls.client_instances:
                 del cls.client_instances[client_instance_id]
+                
+
+class TokenRetrieverInterface(object):
+    """Interface to modify access token form returned to caller of Oauth2Client
+    """
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def __call__(self, access_token):
+        """From input access token return translated form or pass through
+        unchanged as required"""

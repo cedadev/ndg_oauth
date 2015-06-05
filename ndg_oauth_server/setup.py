@@ -81,13 +81,13 @@ The examples should be used in conjunction with the ndg_oauth_client package.
 
 setup(
     name =                      'ndg_oauth_server',
-    version =                   '0.5.1',
+    version =                   '0.6.0',
     description =               'OAuth 2.0 server',
     long_description =          _long_description,
     author =                    'R. B. Wilkinson',
     maintainer =         	    'Philip Kershaw',
     maintainer_email =          'Philip.Kershaw@stfc.ac.uk',
-    #url ='',
+    url =                       'https://github.com/cedadev/ndg_oauth/',
     license =                   'BSD - See LICENCE file for details',
     install_requires =[
         "PasteScript",
@@ -96,7 +96,6 @@ setup(
         "repoze.who",
         "Genshi<=0.6",
     ],
-    extras_require = {'slcs_support': 'MyProxyClient'},
     packages = find_packages(),
     package_data =      {
         'ndg.oauth.server.templates': [
@@ -117,6 +116,9 @@ setup(
         'ndg.oauth.server.examples.shared_config': [
             'README', 'pki/*.pem', 'pki/ca/*.0'
         ]
+    },
+    extras_require = {
+        'test-services': ['Genshi==0.6']
     },
     zip_safe = False,
     classifiers = [

@@ -3,17 +3,17 @@ class RenderingConfiguration(object):
     """
     __slots__ = ('__params')
 
-    def __init__(self, pamameterNames, prefix, kw):
+    def __init__(self, parameter_names, prefix, kw):
         """
-        @type parameterNames: iterable
-        @param parameterNames: names for which parameters are to be initialised
+        @type parameter_names: iterable
+        @param parameter_names: names for which parameters are to be initialised
         @type prefix: basestring
         @param prefix: prefix matching start of relevant 
         @type kw: dict
         @param kw: key/value pairs of parameter names including the prefix and
         corresponding values
         """
-        self.__params = dict.fromkeys(pamameterNames, '')
+        self.__params = dict.fromkeys(parameter_names, '')
         prefixLength = len(prefix)
         for k, v in kw.iteritems():
             if k.startswith(prefix):
