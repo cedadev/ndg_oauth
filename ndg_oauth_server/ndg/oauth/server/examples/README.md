@@ -4,13 +4,9 @@ ini file which sets the combination of middleware and config settings needed.
 
 bearer_tok/ -       uses string-based bearer tokens
 
-slcs/ -             short-lived credential service returns an X.509 cert as 
-                    token.  It uses MyProxy as a backend service to issue certs.  
-                    A test MyProxyCA service (see 
-                    http://grid.ncsa.illinois.edu/myproxy/ca/) is needed for 
-                    this configured with a custom PAM to allow of a global
-                    password. See: 
-                    http://ndg-security.ceda.ac.uk/browser/trunk/MashMyData/pam_credential_translation
+slcs/ -             Resource server is a short-lived credential service (SLCS) -
+					returns a user X.509 cert.  The SLCS implementation is based
+					on the ContrailCA OnlineCAService.
 
 shared_config/ -    contains config files used by all example configurations
 
