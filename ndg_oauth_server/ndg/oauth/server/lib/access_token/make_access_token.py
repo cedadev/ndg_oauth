@@ -17,25 +17,6 @@ from ndg.oauth.server.lib.oauth.authorize import AuthorizeRequest
                                                   
 AUTHORIZATION_CODE_GRANT_TYPE = 'authorization_code'
 MIN_N_ARGS = 3
-
-
-def make_access_token(*args):
-    '''Make an access token based on an access token request (Authorisation
-    Code flow) or an authorisation request (Implicit Grant flow)
-    '''
-    if len(args) < MIN_N_ARGS:
-        raise TypeError('make_access_token takes at least %d, (%d given)' %
-                        (MIN_N_ARGS, len(args)))
-        
-    if isinstance(args[0], AccessTokenRequest):
-        return _make_access_token_from_authz_code_grant(*args)
-        
-    elif isinstance(args[0], AuthorizeRequest):
-        return _make_access_token_from_implicit_grant(*args)
-        
-    else:
-        raise TypeError('Expecting %r or %r type for make_access_token first ' 
-                        'argument.' % (AccessTokenRequest, AuthorizeRequest))
         
     
 def _make_access_token_from_authz_code_grant(token_request, client_id, 
@@ -122,3 +103,21 @@ def _make_access_token_from_implicit_grant(authz_request, access_token_register,
     else:
         return None
 
+
+def make_access_token(*args):
+    '''Make an access token based on an access token request (Authorisation
+    Code flow) or an authorisation request (Implicit Grant flow)
+    '''
+    if len(args) < MIN_N_ARGS:
+        raise TypeError('make_access_token takes at least %d, (%d given)' %
+                        (MIN_N_ARGS, len(args)))
+        
+    if isinstance(args[0], AccessTokenRequest):
+        return _make_access_token_from_authz_code_grant(*args)
+        
+    elif isinstance(args[0], AuthorizeRequest):
+        return _make_access_token_from_implicit_grant(*args)
+        
+    else:
+        raise TypeError('Expecting %r or %r type for make_access_token first ' 
+                        'argument.' % (AccessTokenRequest, AuthorizeRequest))

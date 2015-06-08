@@ -9,18 +9,23 @@ __revision__ = "$Id$"
 
 import httplib
 import logging
+import os
 
 from webob import Request
 
 from ndg.httpsclient.ssl_context_util import SSlContextConfig
-from ndg.oauth.client.lib.oauth2client import Oauth2Client
-from ndg.oauth.client.lib.oauth2client import Oauth2ClientConfig
-from ndg.oauth.client.lib.oauth2_myproxy_client import Oauth2MyProxyClient
+from ndg.oauth.client.lib.oauth2client import (
+                                        Oauth2Client, 
+                                        Oauth2ClientConfig,
+                                        Oauth2ClientAccessTokenRetrievalError,
+                                        TokenRetrieverInterface)
 from ndg.oauth.client.lib.render.configuration import RenderingConfiguration
 from ndg.oauth.client.lib.render.factory import callModuleObject
 from ndg.oauth.client.lib.render.renderer_interface import RendererInterface
 
 log = logging.getLogger(__name__)
+THIS_DIR = os.path.dirname(__file__)
+DEF_TMPL_FILEPATH = os.path.join(os.path.dirname(THIS_DIR), 'templates')
 
 
 class Oauth2ClientMiddlewareSessionError(Exception):
@@ -46,7 +51,8 @@ class Oauth2ClientMiddleware(object):
                                       AUTHENTICATION_TRIGGER_UNAUTHORIZED,
                                       AUTHENTICATION_TRIGGER_URL]
     AUTHENTICATION_URL_OPTION = 'authentication_url'
-    AUTHENTICATION_COMPLETE_OPTION = 'login_complete'
+    ERROR_TMPL_FILEPATH_OPTION = 'error_tmpl_filepath'
+    AUTHENTICATION_COMPLETE_OPTION = 'authentication_complete_tmpl_filepath'
     BASE_URL_PATH_OPTION = 'base_url_path'
     CERTIFICATE_REQUEST_PARAMETER_OPTION = 'certificate_request_parameter'
     REDIRECT_URI = 'oauth_redirect'
@@ -54,6 +60,7 @@ class Oauth2ClientMiddleware(object):
     SCOPE_OPTION = 'scope'
     SESSION_KEY_OPTION = 'session_key'
     SESSION_CALL_CONTEXT_KEY = 'oauth2_call_context'
+    SESSION_ACCESS_TOKEN_REQ_FAILURE_KEY = 'oauth2_access_token_req_failure'
     TOKEN_KEY_OPTION = 'oauth2_token_key'
     CLIENT_CERT_OPTION = 'client_cert'
     CLIENT_KEY_OPTION = 'client_key'
@@ -66,7 +73,10 @@ class Oauth2ClientMiddleware(object):
     
     PROPERTY_DEFAULTS = {
         ACCESS_TOKEN_TYPE_OPTION: 'bearer',
-        AUTHENTICATION_COMPLETE_OPTION: '',
+        ERROR_TMPL_FILEPATH_OPTION: os.path.join(DEF_TMPL_FILEPATH, 
+                                                 'error.html'),
+        AUTHENTICATION_COMPLETE_OPTION: os.path.join(DEF_TMPL_FILEPATH, 
+                                                 'login_complete.html'),
         AUTHENTICATION_TRIGGER_OPTION: AUTHENTICATION_TRIGGER_ALWAYS,
         AUTHENTICATION_URL_OPTION: 'oauth_authenticate',
         BASE_URL_PATH_OPTION: '',
@@ -113,14 +123,14 @@ class Oauth2ClientMiddleware(object):
         """
         self._app = app
         self._set_configuration(prefix, local_conf)
-        if self.access_token_type == 'slcs':
-            log.debug("Setting client as Oauth2MyProxyClient (SLCS)")
-            self._oauth_client_class = Oauth2MyProxyClient
-            self._token_retriever_class = MyProxyTokenRetriever
-        else:
+        if self.access_token_type == 'bearer':
             log.debug("Setting client as Oauth2Client (Bearer token)")
             self._oauth_client_class = Oauth2Client
             self._token_retriever_class = TokenRetriever
+        else:
+            raise Oauth2ClientMiddlewareConfigOptError("Access token type %r "
+                                                       "not recognised" % 
+                                                       self.access_token_type)
 
         self._renderingConfiguration = RenderingConfiguration(
                                                     self.LAYOUT_PARAMETERS,
@@ -157,8 +167,8 @@ class Oauth2ClientMiddleware(object):
         session = environ.get(self.session_env_key)
         if session is None:
             raise Oauth2ClientMiddlewareSessionError(
-                'Oauth2ClientMiddleware.__call__: No beaker session key '
-                '"%s" found in environ' % self.session_env_key)
+                    'Oauth2ClientMiddleware.__call__: No beaker session key '
+                    '"%s" found in environ' % self.session_env_key)
 
         # Determine trigger for starting authentication process.
         authenticate_before_delegating = False
@@ -182,9 +192,27 @@ class Oauth2ClientMiddleware(object):
         # Check whether redirecting back after requesting authorization.
         redirect_url = None
         if self.client_config.is_redirect_uri(req.application_url, req.url):
-            log.debug("Redirected back after requesting authorization.")
+            try:
+                token = self._get_token_after_redirect(session, req)
+                
+            except Oauth2ClientAccessTokenRetrievalError as \
+                                                access_token_retrieval_error:
+                log.error("%r response from OAuth 2.0 authorization "
+                          "server: %r", 
+                          access_token_retrieval_error.error,
+                          access_token_retrieval_error.error_description)
+                
+                session[self.__class__.SESSION_ACCESS_TOKEN_REQ_FAILURE_KEY
+                        ] = access_token_retrieval_error
+                session.save()
+                
+                app_iter = self._app(environ, start_response)
+                return app_iter
+
+            # Only set redirect if token was successfully retrieved
             is_redirect_back = True
-            token = self._get_token_after_redirect(session, req)
+            log.debug("Redirected back after requesting authorization.")
+
             original_environ = session[self.__class__.SESSION_CALL_CONTEXT_KEY]
         else:
             # Start the OAuth2 transaction to get a token.
@@ -220,10 +248,11 @@ class Oauth2ClientMiddleware(object):
                     return []
                 else:
                     return start_response(status, response_headers, exc_info)
-
+            
         if is_authentication_url:
             c = {'baseURL': req.application_url}
-            response = self.renderer.render(self.authentication_complete,
+            response = self.renderer.render(
+                            self.authentication_complete_tmpl_filepath,
                             self._renderingConfiguration.merged_parameters(c))
             
             start_response(self._get_http_status_string(httplib.OK),
@@ -234,15 +263,15 @@ class Oauth2ClientMiddleware(object):
             return [response]
 
         # Ensure that the URL is that prior to authentication redirection.
-        if is_redirect_back:
+        elif is_redirect_back:
             original_url = original_environ['url']
             log.debug("Redirecting to %s", original_url)
             start_response(self._get_http_status_string(httplib.FOUND),
                            [('Location', original_url)])
             return []
-
-        app_iter = self._app(environ, local_start_response)
-        return app_iter
+        else:
+            app_iter = self._app(environ, local_start_response)
+            return app_iter
 
     def _set_configuration(self, prefix, local_conf):
         """Sets the configuration values.
@@ -257,8 +286,12 @@ class Oauth2ClientMiddleware(object):
         cls = self.__class__
         self.access_token_type = cls._get_config_option(prefix, local_conf,
                                                 cls.ACCESS_TOKEN_TYPE_OPTION)
-        self.authentication_complete = cls._get_config_option(prefix,
-                                local_conf, cls.AUTHENTICATION_COMPLETE_OPTION)
+        
+        self.error_tmpl_filepath = cls._get_config_option(
+                        prefix, local_conf, cls.ERROR_TMPL_FILEPATH_OPTION)
+        
+        self.authentication_complete_tmpl_filepath = cls._get_config_option(
+                        prefix, local_conf, cls.AUTHENTICATION_COMPLETE_OPTION)
         
         self.authentication_trigger = cls._get_config_option(
                 prefix, local_conf, cls.AUTHENTICATION_TRIGGER_OPTION).lower()
@@ -379,6 +412,7 @@ class Oauth2ClientMiddleware(object):
                                                                 self.ssl_config)
             # Save client state, which includes the token.
             session.save()
+            
             # Save only marks the session for persistence at the end of the HTTP
             # transaction. Persist now so that it is available if a new request
             # is made from nested middleware.
@@ -390,49 +424,16 @@ class Oauth2ClientMiddleware(object):
                                                      "for session.")
 
 
-class TokenRetriever(object):
+class TokenRetriever(TokenRetrieverInterface):
     def __init__(self, client):
         self.client = client
 
-    def __call__(self, access_token, error, error_description):
+    def __call__(self, access_token):
         """
         Returns authorization token.
         @type access_token: type of access token
         @param access_token: access token
-        @type error: str
-        @param error: OAuth error string
-        @type error_description: str
-        @param error_description: error description
         @rtype: type of access token
         @return: access token
         """
-        if error:
-            return None
         return self.client.access_token
-
-
-class MyProxyTokenRetriever(object):
-    def __init__(self, client):
-        self.client = client
-
-    def __call__(self, access_token, error, error_description):
-        """
-        Returns the private key and certificate.
-        This depends on Oauth2MyProxyClient which sets the private key in the
-        client.
-        @type access_token: type of access token
-        @param access_token: access token
-        @type error: str
-        @param error: OAuth error string
-        @type error_description: str
-        @param error_description: error description
-        @rtype: tuple (str, str)
-        @return: tuple (
-            private key
-            access token
-        )
-        """
-        if error:
-            return None
-#            return ("", ("Token not available because of error: %s - %s" % (error, error_description)))
-        return self.client.private_key, self.client.access_token

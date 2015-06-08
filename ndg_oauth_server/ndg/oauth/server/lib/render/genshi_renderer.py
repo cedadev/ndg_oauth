@@ -31,19 +31,5 @@ class GenshiRenderer(RendererInterface):
         loader = TemplateLoader(dirname, auto_reload=True)
         tmpl = loader.load(fname)
         response = tmpl.generate(c=parameters).render('html')
-        return response
 
-#    def render(self, filename, parameters):
-#        """Render a page from a template.
-#        @type filename: basestring
-#        @param filename: filename of template
-#        @type parameters: dict
-#        @param parameters: parameters to substitute into template
-#        @rtype: basestring
-#        @return: rendered template
-#        """
-#        tmpl_file = open(filename)
-#        tmpl = MarkupTemplate(tmpl_file)
-#        tmpl_file.close()
-#        response = tmpl.generate(c=parameters).render('html')
-#        return response
+        return response
